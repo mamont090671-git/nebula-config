@@ -1,0 +1,64 @@
+# 1. СТАТИЧЕСКАЯ КАРТА (Как найти Маяк в интернете)
+static_host_map:
+  # Внутренний IPv4 маяка: [Публичный_IP:Порт]
+  "192.168.10.110": ["95.182.96.40:4242"]
+  # Внутренний IPv6 маяка: [Публичный_IP:Порт]
+  "fd00:1234:5678:a::2": ["95.182.96.40:4242"]
+
+# 2. ПУТИ К СЕРТИФИКАТАМ (V2)
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/GPD_win_4.crt
+  key: /etc/nebula/GPD_win_4.key
+
+# 3. НАСТРОЙКИ МАЯКА
+lighthouse:
+  am_lighthouse: false
+  interval: 60
+  hosts:
+    - "fd00:1234:5678:a::2" # Приоритет на IPv6 адрес маяка
+    - "192.168.10.110"
+
+# 4. ПРОСЛУШИВАНИЕ
+listen:
+  host: "[::]" # Слушаем на всех интерфейсах (v4 и v6)
+  port: 0      # Для клиента за NAT лучше 0 (случайный порт)
+
+# 5. ПРОБИВ NAT (Punching)
+punchy:
+  punch: true
+  respond: true
+  delay: 1s
+
+# 6. РЕТРАНСЛЯЦИЯ (Relay)
+relay:
+  use_relays: true # Обязательно true для работы через Маяк, если NAT жесткий
+
+# 7. ВИРТУАЛЬНЫЙ ИНТЕРФЕЙС
+tun:
+  dev: nebula1
+  tx_queue: 500
+  mtu: 1300
+  routes:
+  unsafe_routes:
+
+# 8. ФАЕРВОЛ
+firewall:
+  conntrack:
+    tcp_timeout: 12m
+    udp_timeout: 3m
+    default_timeout: 10m
+
+  outbound:
+    - port: any
+      proto: any
+      host: any
+
+  inbound:
+    - port: any
+      proto: any
+      host: any
+
+    - port: any
+      proto: any
+      host: any
