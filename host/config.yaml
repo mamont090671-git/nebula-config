@@ -6,10 +6,11 @@ static_host_map:
   "fd00:1234:5678:a::2": ["95.182.96.40:4242"]
 
 # 2. ПУТИ К СЕРТИФИКАТАМ (V2)
+# Если используется inline CA, pki.ca будет перезаписан генератором
 pki:
   ca: /etc/nebula/ca.crt
-  cert: /etc/nebula/GPD_win_4.crt
-  key: /etc/nebula/GPD_win_4.key
+  cert: /etc/nebula/{{HOST_NAME}}.crt
+  key: /etc/nebula/{{HOST_NAME}}.key
 
 # 3. НАСТРОЙКИ МАЯКА
 lighthouse:
@@ -31,10 +32,18 @@ punchy:
   delay: 1s
 
 # 6. РЕТРАНСЛЯЦИЯ (Relay)
+# 7. RELAY SERVERS (заполняется генератором из relay_servers)
+relays:
+  # relay_servers_placeholder
+  {{RELAYS}}
 relay:
   use_relays: true # Обязательно true для работы через Маяк, если NAT жесткий
 
-# 7. ВИРТУАЛЬНЫЙ ИНТЕРФЕЙС
+# 7. ПРИБЛИЖЁННЫЕ СЕТИ (Preferred Ranges)
+preferred_ranges:
+  - "192.168.10.0/24"
+
+# 8. ВИРТУАЛЬНЫЙ ИНТЕРФЕЙС
 tun:
   dev: nebula1
   tx_queue: 500
@@ -42,7 +51,12 @@ tun:
   routes:
   unsafe_routes:
 
-# 8. ФАЕРВОЛ
+# 9. УПРАВЛЕНИЕ ТУННЕЛЯМИ
+tunnels:
+  drop_inactive: true
+  inactivity_timeout: 10m
+
+# 10. ФАЕРВОЛ
 firewall:
   conntrack:
     tcp_timeout: 12m
@@ -55,10 +69,6 @@ firewall:
       host: any
 
   inbound:
-    - port: any
-      proto: any
-      host: any
-
     - port: any
       proto: any
       host: any

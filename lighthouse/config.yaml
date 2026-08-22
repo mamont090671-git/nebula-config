@@ -20,6 +20,10 @@ punchy:
   # Continues to punch inbound/outbound at a regular interval to avoid expiration of firewall nat mappings
   punch: true
 
+# ПРИБЛИЖЁННЫЕ СЕТИ
+preferred_ranges:
+  - "192.168.10.0/24"
+
 relay:
   # Set am_relay to true to permit other hosts to list my IP in their relays config. Default false.
   am_relay: false
@@ -42,6 +46,12 @@ tun:
   # Route based MTU overrides, you have known vpn ip paths that can support larger MTUs you can increase/decrease them here
   routes:
   unsafe_routes:
+
+# УПРАВЛЕНИЕ ТУННЕЛЯМИ
+tunnels:
+  drop_inactive: true
+  inactivity_timeout: 10m
+
 # Configure logging level
 logging:
   level: info

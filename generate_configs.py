@@ -123,11 +123,33 @@ def build_lighthouse_hosts_for_lighthouse(lighthouses, current_name):
     return '\n'.join(lines) if lines else None
 
 
-def render_host_config(template, host_name, host_data, lighthouses):
+def build_relays_servers(relay_servers_list):
+    """Строит relays: секцию из списка relay-серверов"""
+    if not relay_servers_list:
+        return ''
+    lines = []
+    for ip in relay_servers_list:
+        lines.append(f'- "{ip}"')
+    return '\n'.join(lines)
+
+
+def build_inline_ca_block(ca_pem):
+    """Строит pki.ca секцию с inline PEM"""
+    if not ca_pem:
+        return None
+    # base64-encodes the CA PEM and returns it as a multi-line block
+    lines = ['  ca: |']
+    for line in ca_pem.split('\n'):
+        lines.append(f'    {line}')
+    return '\n'.join(lines)
+
+
+def render_host_config(template, host_name, host_data, lighthouses, relay_servers=None, ca_pem=None):
     lines = template.split('\n')
     result = []
     
     static_map = build_static_host_map_for_client(lighthouses)
+    inline_ca = build_inline_ca_block(ca_pem) if ca_pem else None
     lh_hosts = build_lighthouse_hosts_for_client(lighthouses)
     listen_port = str(host_data.get('port', '0'))
     
@@ -144,12 +166,15 @@ def render_host_config(template, host_name, host_data, lighthouses):
             result.extend(static_map.split('\n'))
             continue
         
-        if 'GPD_win_4.crt' in line:
-            result.append(line.replace('GPD_win_4.crt', f'{host_name}.crt'))
+        if '{{HOST_NAME}}' in line:
+            result.append(line.replace('{{HOST_NAME}}', host_name))
             i += 1
             continue
-        if 'GPD_win_4.key' in line:
-            result.append(line.replace('GPD_win_4.key', f'{host_name}.key'))
+        
+        # 3.2: Inline CA — если есть ca_pem, заменяем pki.ca на inline
+        if line.strip() == 'ca: /etc/nebula/ca.crt' and inline_ca:
+            for ca_line in inline_ca.split('\n'):
+                result.append(ca_line)
             i += 1
             continue
         
@@ -173,19 +198,28 @@ def render_host_config(template, host_name, host_data, lighthouses):
             result.extend(lh_hosts.split('\n'))
             continue
         
+        if line.strip() == '{{RELAYS}}':
+            if relay_servers:
+                result.append(line.replace('{{RELAYS}}', build_relays_servers(relay_servers)))
+            else:
+                result.append('  # Нет relay-серверов')
+            i += 1
+            continue
+        
         result.append(line)
         i += 1
     
     return '\n'.join(result)
 
 
-def render_lighthouse_config(template, lh_name, lh_data, lighthouses):
+def render_lighthouse_config(template, lh_name, lh_data, lighthouses, ca_pem=None):
     lines = template.split('\n')
     result = []
     
     static_map = build_static_host_map_for_lighthouse(lighthouses, lh_name)
     other_lh_hosts = build_lighthouse_hosts_for_lighthouse(lighthouses, lh_name)
     port = str(lh_data.get('port', '4242'))
+    inline_ca = build_inline_ca_block(ca_pem) if ca_pem else None
     
     is_single_lighthouse = len(lighthouses) == 1
     
@@ -212,6 +246,28 @@ def render_lighthouse_config(template, lh_name, lh_data, lighthouses):
             i += 1
             continue
         
+        # 3.2: Inline CA — если есть ca_pem, заменяем pki.ca на inline
+        if line.strip() == 'ca: /etc/nebula/ca.crt' and inline_ca:
+            for ca_line in inline_ca.split('\n'):
+                result.append(ca_line)
+            i += 1
+            continue
+        
+        # 1.2: am_relay — берём из master-конфа
+        if line.strip().startswith('am_relay:'):
+            am_relay_val = lh_data.get('am_relay', False)
+            result.append(f'  am_relay: {str(am_relay_val).lower()}')
+            i += 1
+            continue
+        
+        # 1.3: use_relays: false для relay-серверов
+        if line.strip().startswith('use_relays:'):
+            is_relay_server = lh_data.get('am_relay', False)
+            use_relays_val = not is_relay_server
+            result.append(f'  use_relays: {str(use_relays_val).lower()}')
+            i += 1
+            continue
+        
         if line.strip() == 'port: 4242':
             result.append(f'  port: {port}')
             i += 1
@@ -232,6 +288,114 @@ def render_lighthouse_config(template, lh_name, lh_data, lighthouses):
         i += 1
     
     return '\n'.join(result)
+
+
+def verify_generated_configs(config, lighthouses, hosts, relay_servers):
+    """Проверка сгенерированных конфигов на корректность."""
+    errors = []
+    warnings = []
+    
+    # 1. Проверка relay_servers не пусты для NAT-хостов
+    if relay_servers:
+        relay_ips = [r for r in relay_servers if r]
+        if not relay_ips:
+            errors.append("relay_servers пустой — NAT-хосты не будут знать relay-сервер")
+    else:
+        # Проверяем есть ли port 0 хосты
+        nat_hosts = [name for name, data in hosts.items() if str(data.get('port', '4242')) == '0']
+        if nat_hosts:
+            warnings.append(f"relay_servers не указан, но есть NAT-хосты с port 0: {', '.join(nat_hosts)}")
+    
+    # 2. Проверка port 0 хостов — use_relays: true
+    for host_name, host_data in hosts.items():
+        port = str(host_data.get('port', '4242'))
+        if port == '0':
+            config_file = OUTPUT_DIR / host_name / "config.yaml"
+            if config_file.exists():
+                with open(config_file, 'r') as f:
+                    content = f.read()
+                if 'use_relays: true' not in content:
+                    errors.append(f"{host_name} (port 0): use_relays: true отсутствует в конфиге")
+                if 'am_relay: true' not in content:
+                    # am_relay на клиенте не нужен, но проверяем что relay секция есть
+                    if 'relay:' not in content:
+                        errors.append(f"{host_name} (port 0): секция relay: отсутствует в конфиге")
+                    if 'use_relays: false' in content:
+                        errors.append(f"{host_name} (port 0): use_relays: false вместо true")
+    
+    # 3. Проверка relay-лайтхауса — am_relay: true, use_relays: false
+    for lh_name, lh_data in lighthouses.items():
+        if lh_data.get('am_relay', False):
+            config_file = OUTPUT_DIR / lh_name / "config.yaml"
+            if config_file.exists():
+                with open(config_file, 'r') as f:
+                    content = f.read()
+                if 'am_relay: true' not in content:
+                    errors.append(f"{lh_name} (am_relay): am_relay: true отсутствует в конфиге")
+                if 'use_relays: false' not in content:
+                    errors.append(f"{lh_name} (am_relay): use_relays: false отсутствует в конфиге")
+    
+    # 4. Проверка static_host_map на клиентах
+    for host_name in hosts:
+        config_file = OUTPUT_DIR / host_name / "config.yaml"
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                content = f.read()
+            if 'static_host_map:' not in content:
+                errors.append(f"{host_name}: static_host_map отсутствует в конфиге")
+            elif '192.168.10.101' not in content:
+                # Проверяем что указан relay-лайтхаус в static_host_map
+                # (или любой из лайтхаусов)
+                has_lh_map = False
+                for lh_name in lighthouses:
+                    lh_ip = lighthouses[lh_name].get('nebula_ip', {}).get('ipv4', '').split('/')[0]
+                    if lh_ip and lh_ip in content:
+                        has_lh_map = True
+                        break
+                if not has_lh_map:
+                    warnings.append(f"{host_name}: static_host_map не содержит IPv4 лайтхауса")
+    
+    # 5. Проверка IPv6 hosts на клиентах
+    for host_name in hosts:
+        config_file = OUTPUT_DIR / host_name / "config.yaml"
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                content = f.read()
+            # Парсим hosts секцию точнее: ищем hosts под lighthouse, берём до next section
+            lh_match = content.find('lighthouse:')
+            if lh_match != -1:
+                hosts_section_start = content.find('hosts:', lh_match)
+                if hosts_section_start != -1:
+                    hosts_section = content[hosts_section_start + 7:]
+                    hosts_lines = hosts_section.split('\n')[:20]  # limit
+                    hosts_list = '\n'.join(hosts_lines)
+                    for lh_name, lh_data in lighthouses.items():
+                        ipv6 = lh_data.get('nebula_ip', {}).get('ipv6', '').split('/')[0]
+                        if ipv6 and ipv6 not in hosts_list:
+                            warnings.append(f"{host_name}: hosts секция lighthouse не содержит IPv6 {ipv6} ({lh_name})")
+    
+    # Итог
+    print("\n" + "=" * 60)
+    print("ПРОВЕРКА СГЕНЕРИРОВАННЫХ КОНФИГОВ")
+    print("=" * 60)
+    
+    if warnings:
+        print(f"\nПредупреждения ({len(warnings)}):")
+        for w in warnings:
+            print(f"  ⚠ {w}")
+    
+    if errors:
+        print(f"\nОшибки ({len(errors)}):")
+        for e in errors:
+            print(f"  ✗ {e}")
+        print("\nРезультат: НЕ ПРОЙДЕНО — исправьте указанные ошибки")
+        return False
+    else:
+        if warnings:
+            print("\nРезультат: ПРОЙДЕНО С ПРЕДУПРЕЖДЕНИЯМИ")
+        else:
+            print("\nРезультат: ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ ✓")
+        return True
 
 
 def copy_for_all_files(node_dir):
@@ -262,7 +426,7 @@ def copy_ca_to_node(node_dir, ca_crt_path):
     print(f"  CA: {dest.name} скопирован")
 
 
-def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path):
+def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in_pub=None):
     """Генерация сертификата для узла/маяка"""
     # Собираем IPv4/IPv6 для -ip параметра
     ipv4 = node_data.get('nebula_ip', {}).get('ipv4', '')
@@ -302,6 +466,11 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path):
         "-out-key", str(node_dir / f"{cert_name}.key")
     ]
     
+    # 3.3: Key-based signing — если есть in_pub, добавляем -in-pub
+    if in_pub:
+        cmd.extend(["-in-pub", in_pub])
+        print(f"  Режим key-based signing: -in-pub {in_pub}")
+    
     print(f"  Генерация сертификата для {node_name}...")
     print(f"    Имя: {cert_name}")
     print(f"    IP: {ip_string}")
@@ -327,7 +496,7 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path):
         return False, None
 
 
-def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True):
+def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True, in_pub=None):
     node_dir = OUTPUT_DIR / node_name
     node_dir.mkdir(parents=True, exist_ok=True)
     
@@ -364,7 +533,7 @@ def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True
             
             if nebula_cert_path and ca_dir.exists():
                 success, cert_file = generate_node_certificate(
-                    node_name, node_data, ca_dir, nebula_cert_path
+                    node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub
                 )
 
 
@@ -415,7 +584,7 @@ def generate_ca(network_name, nebula_cert_path):
         sys.exit(1)
 
 
-def generate_all_host_certs(config, nebula_cert_path, ca_dir):
+def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None):
     """Генерация сертификатов для всех узлов и маяков"""
     if not ca_dir.exists():
         print(f"Ошибка: CA-сертификат не найден в {ca_dir}", file=sys.stderr)
@@ -438,7 +607,7 @@ def generate_all_host_certs(config, nebula_cert_path, ca_dir):
     print("=" * 50)
     
     for node_name, node_data in all_nodes.items():
-        success, _ = generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path)
+        success, _ = generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub)
         if success:
             success_count += 1
         else:
@@ -526,7 +695,7 @@ def main():
     if args.generate_host_certs:
         config = load_config()
         ca_dir = OUTPUT_DIR / "ca"
-        generate_all_host_certs(config, nebula_cert_path, ca_dir)
+        generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=in_pub)
         sys.exit(0)
     
     # Основная генерация
@@ -541,6 +710,7 @@ def main():
     # Проверяем наличие CA-сертификата и генерируем если нет
     ca_dir = OUTPUT_DIR / "ca"
     ca_crt_path = ca_dir / "ca.crt"
+    auto_generate = False
     if ca_crt_path.exists():
         print(f"✓ CA-сертификат найден: {ca_crt_path}")
     else:
@@ -551,6 +721,9 @@ def main():
     
     lighthouses = config.get('lighthouse', {})
     hosts = config.get('hosts', {})
+    relay_servers = config.get('relay_servers', [])
+    ca_pem = config.get('ca_pem', '') or None
+    in_pub = config.get('in_pub', '') or None
     
     # Определяем какие узлы генерировать
     if args.only_hosts:
@@ -584,8 +757,8 @@ def main():
         template = load_template("lighthouse")
         for lh_name in light_targets:
             lh_data = lighthouses[lh_name]
-            rendered = render_lighthouse_config(template, lh_name, lh_data, lighthouses)
-            write_config(lh_name, rendered, ca_crt_path, generate_cert=auto_generate)
+            rendered = render_lighthouse_config(template, lh_name, lh_data, lighthouses, ca_pem)
+            write_config(lh_name, rendered, ca_crt_path, generate_cert=auto_generate, in_pub=in_pub)
     
     # Генерация узлов
     if host_targets:
@@ -593,8 +766,11 @@ def main():
         template = load_template("host")
         for host_name in host_targets:
             host_data = hosts[host_name]
-            rendered = render_host_config(template, host_name, host_data, lighthouses)
-            write_config(host_name, rendered, ca_crt_path, generate_cert=auto_generate)
+            rendered = render_host_config(template, host_name, host_data, lighthouses, relay_servers, ca_pem)
+            write_config(host_name, rendered, ca_crt_path, generate_cert=auto_generate, in_pub=in_pub)
+    
+    # Верификация сгенерированных конфигов
+    verify_generated_configs(config, lighthouses, hosts, relay_servers)
     
     print("\n" + "=" * 50)
     print(f"Готово! Файлы сохранены в: {OUTPUT_DIR}/")

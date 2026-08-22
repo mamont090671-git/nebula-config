@@ -1,21 +1,26 @@
 net-name: x-net
+
+# Relay-серверы — nebula-IP узлов, через которые клиенты за NAT будут проходить
+relay_servers:
+  - 192.168.10.101
+
+# Inline CA PEM (base64-encoded, optional)
+ca_pem: ""
+
+# Key-based signing public address (optional, for -in-pub)
+in_pub: ""
+
 lighthouse:
   light-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.110/24
-      ipv6: fd00:1234:5678:a::110/64
-    port: '4242'
-    public_ip: 13.13.14.40
-    type: LH
-  light-2:
     groups: home
     nebula_ip:
       ipv4: 192.168.10.101/24
       ipv6: fd00:1234:5678:a::101/64
     port: '4242'
     public_ip: 138.100.15.25
+    am_relay: true
     type: LH
+
 hosts:
   NL-H:
     groups: home
@@ -23,12 +28,13 @@ hosts:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
     public_ip: 31.58.33.31
+    port: '4242'
     type: HOST
   RU:
     groups: home
     nebula_ip:
-      ipv4: 192.168.10.101/24
-      ipv6: fd00:1234:5678:a::101/64
+      ipv4: 192.168.10.104/24
+      ipv6: fd00:1234:5678:a::104/64
     port: '4242'
     public_ip: 158.156.139.25
     type: HOST
@@ -37,16 +43,19 @@ hosts:
     nebula_ip:
       ipv4: 192.168.10.102/24
       ipv6: fd00:1234:5678:a::102/64
+    port: '0'
     type: HOST
   laptop-1:
     groups: home,ssh,admins
     nebula_ip:
       ipv4: 192.168.10.103/24
       ipv6: fd00:1234:5678:a::103/64
+    port: '0'
     type: HOST
   opi:
     groups: admins,ssh,home
     nebula_ip:
       ipv4: 192.168.10.105/24
       ipv6: fd00:1234:5678:a::105/64
+    port: '0'
     type: HOST
