@@ -10,6 +10,10 @@ ca_pem: ""
 # Key-based signing public address (optional, for -in-pub)
 in_pub: ""
 
+# Путь к внешнему CA-ключу (optional). Если задан, генерация CA пропускается,
+# используется существующий ca.key. ca.crt всё равно генерируется.
+ca_key_path: ""
+
 lighthouse:
   light-1:
     groups: home

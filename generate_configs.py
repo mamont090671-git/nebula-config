@@ -141,7 +141,9 @@ def render_config(template, node_name, node_data, node_type, lighthouses, relay_
     
     is_lighthouse = node_type == 'lighthouse'
     is_relay = is_lighthouse and node_data.get('am_relay', False)
+    is_single_lighthouse = len(lighthouses) == 1
     
+    # Строим секции
     if is_lighthouse:
         static_map = build_static_host_map_for_lighthouse(lighthouses, node_name)
         lh_hosts = build_lighthouse_hosts_for_lighthouse(lighthouses, node_name)
@@ -151,36 +153,33 @@ def render_config(template, node_name, node_data, node_type, lighthouses, relay_
         static_map = build_static_host_map_for_client(lighthouses)
         lh_hosts = build_lighthouse_hosts_for_client(lighthouses)
         am_relay_val = 'false'
-        node_port = str(node_data.get('port', '4242'))
-        use_relays_val = 'true' if node_port == '0' else 'false'
+        use_relays_val = 'true'
     
     relays_val = build_relays_servers(relay_servers) if not is_relay else '  # Нет relay-серверов'
-    listen_host = "[::]" if not is_lighthouse else "::"
+    listen_host = '"[::]"' if not is_lighthouse else '"::"'
     listen_port = str(node_data.get('port', '4242'))
-    extra_inbound = extra_inbound_rules or '  # Нет правил'
     
+    # Inline CA
     inline_ca = build_inline_ca_block(ca_pem)
     
+    # Заменяем плейсхолдеры
     result = template
     result = result.replace('{{HOST_NAME}}', node_name)
-    result = result.replace('{{AM_AWARE}}', am_relay_val)
+    result = result.replace('{{STATIC_HOST_MAP}}', static_map or '# Нет static_host_map')
+    result = result.replace('{{LH_HOSTS}}', lh_hosts or '    # Нет других маяков')
     result = result.replace('{{AM_RELAY}}', am_relay_val)
     result = result.replace('{{USE_RELAYS}}', use_relays_val)
+    result = result.replace('{{RELAYS}}', relays_val)
     result = result.replace('{{LISTEN_HOST}}', listen_host)
-    result = result.replace('{{LISTEN_PORT}}', str(listen_port))
-    if static_map:
-        result = result.replace('# SHM', static_map)
-    else:
-        result = result.replace('static_host_map:\n# SHM', 'static_host_map:\n  # Нет static_host_map')
-    if lh_hosts:
-        result = result.replace('    # LHM', lh_hosts)
-    else:
-        result = result.replace('    # LHM', '    # Нет других маяков')
-    result = result.replace('# RELAYS', relays_val)
-    result = result.replace('# FIREWALL', extra_inbound)
+    result = result.replace('{{LISTEN_PORT}}', listen_port)
+    result = result.replace('{{FIREWALL_EXTRA_INBOUND}}', extra_inbound_rules or '')
     
+    # Inline CA замена
     if inline_ca:
-        result = result.replace('ca: /etc/nebula/ca.crt', inline_ca)
+        result = result.replace(
+            'ca: /etc/nebula/ca.crt',
+            inline_ca
+        )
     
     return result
 
@@ -315,7 +314,7 @@ def copy_ca_to_node(node_dir, ca_crt_path):
     print(f"  CA: {dest.name} скопирован")
 
 
-def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in_pub=None):
+def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in_pub=None, external_ca_key=None, ca_crt_path=None):
     """Генерация сертификата для узла/маяка"""
     ipv4 = node_data.get('nebula_ip', {}).get('ipv4', '')
     ipv6 = node_data.get('nebula_ip', {}).get('ipv6', '')
@@ -334,6 +333,10 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
     groups = node_data.get('groups', 'home')
     cert_name = node_data.get('name', node_name)
     
+    # P1.1: Если внешний ключ задан — использовать его, иначе из output/
+    ca_key = external_ca_key if external_ca_key else ca_dir / "ca.key"
+    ca_crt = ca_crt_path if ca_crt_path else ca_dir / "ca.crt"
+    
     node_dir = OUTPUT_DIR / node_name
     node_dir.mkdir(parents=True, exist_ok=True)
     
@@ -343,8 +346,8 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
         "-name", cert_name,
         "-ip", ip_string,
         "-groups", groups,
-        "-ca-crt", str(ca_dir / "ca.crt"),
-        "-ca-key", str(ca_dir / "ca.key"),
+        "-ca-crt", str(ca_crt),
+        "-ca-key", str(ca_key),
         "-out-crt", str(node_dir / f"{cert_name}.crt"),
         "-out-key", str(node_dir / f"{cert_name}.key")
     ]
@@ -378,7 +381,7 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
         return False, None
 
 
-def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True, in_pub=None):
+def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True, in_pub=None, external_ca_key=None):
     node_dir = OUTPUT_DIR / node_name
     node_dir.mkdir(parents=True, exist_ok=True)
     
@@ -395,7 +398,8 @@ def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True
     
     copy_for_all_files(node_dir)
     
-    if ca_crt_path:
+    # P1.1: Не копировать ca.crt в output если используется внешний ключ
+    if ca_crt_path and not external_ca_key:
         copy_ca_to_node(node_dir, ca_crt_path)
     
     if generate_cert and ca_crt_path.exists():
@@ -412,7 +416,7 @@ def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True
             
             if nebula_cert_path and ca_dir.exists():
                 success, cert_file = generate_node_certificate(
-                    node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub
+                    node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub, external_ca_key=external_ca_key, ca_crt_path=ca_crt_path
                 )
 
 
@@ -603,6 +607,18 @@ def main():
     relay_servers = config.get('relay_servers', [])
     ca_pem = config.get('ca_pem', '') or None
     in_pub = config.get('in_pub', '') or None
+    ca_key_path = config.get('ca_key_path', '') or None
+    
+    # P1.1: Если ca_key_path задан — используем внешний ключ
+    external_ca_key = None
+    if ca_key_path:
+        external_ca_key = Path(ca_key_path)
+        if not external_ca_key.exists():
+            print(f"⚠ ca_key_path задан, но файл не найден: {external_ca_key}", file=sys.stderr)
+            external_ca_key = None
+        else:
+            print(f"✓ Используем внешний CA-ключ: {external_ca_key}")
+            print(f"  CA не будет сгенерирован — используется ключ из {external_ca_key}")
     
     # Определяем какие узлы генерировать
     if args.only_hosts:

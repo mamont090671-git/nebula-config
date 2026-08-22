@@ -1,90 +1,120 @@
 ---
 plan: nebula-config-fixes
 created: 2026-08-22
-status: completed
+status: in_progress
 priority: critical
 ---
 
 # План исправлений nebula-config
 
-## Фаза 1: Критические (блокируют работу relay)
+## Выполнено (текущая сессия)
 
-### 1.1 Обработать relay_servers в generate_configs.py
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Добавить чтение relay_servers и вставку relays: секции в шаблон хоста.
-**Результат:** Добавлена функция `build_relays_servers()` и параметр `relay_servers` в `render_host_config()`. Шаблон `host/config.yaml` содержит `{{RELAYS}}` placeholder. В `main()` добавлено чтение `relay_servers` из master-конфа и передача в `render_host_config()`. Сгенерированный конфиг содержит:
+### ✅ Удаление бинарников из репозитория
+- Удалены из git: `for-all/nebula`, `for-all/nebula-cert`, `nebula-cert` (дубликат)
+- `output/`, `__pycache__/` уже в `.gitignore`
+- Создан `setup-binaries.sh` — скачивает бинарники из `slackhq/nebula` releases (tar.gz, распаковка)
+- Поддержка архитектур: x86_64 → amd64, aarch64/arm64 → arm64
+- Коммиты: ec67db7, e1b2b51
+
+### ✅ Обновление README.md
+- Структура проекта приведена в соответствие с реальностью (убраны несуществующие папки, output/, бинарники)
+- Удалена секция "Генерация сертификатов" (дублирует документацию генератора)
+- Добавлено примечание про `setup-binaries.sh`
+- Обновлены инструкции решения проблем
+- Коммит: 1761210
+
+### ✅ Пуш на GitHub
+- `74eb7f8..1761210 master -> master`
+
+---
+
+## Выполнено (предыдущие сессии)
+
+### Фаза 1: Критические (исправлены)
+
+#### 1.1 Обработать relay_servers в generate_configs.py ✅
+**Результат:** Функция `build_relays_servers()` + параметр `relay_servers` в `render_config()`. Шаблон содержит `# RELAYS` placeholder. Сгенерированный конфиг содержит:
 ```yaml
 relays:
   - "192.168.10.101"
 ```
-Проверено: работает корректно для всех хостов (NL-H с port 4242 и gpd с port 0).
 
-### 1.2 am_relay в сгенерированном конфиге лайтхауса
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Добавить передачу am_relay в render_lighthouse_config().
-**Результат:** В `render_lighthouse_config()` добавлена обработка `am_relay:` — значение берётся из master-конфа (`lh_data.get('am_relay', False)`). Для light-1: `am_relay: true`.
+#### 1.2 am_relay в конфиге лайтхауса ✅
+**Результат:** `am_relay: true` вставляется в конфиг через `# AM_RELAY_PLACEHOLDER` → `am_relay: true`.
 
-### 1.3 use_relays: false на relay-сервере
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** В render_lighthouse_config() установить use_relays: false для relay-узлов.
-**Результат:** В `render_lighthouse_config()` добавлена логика: если `am_relay: true` (relay-сервер), то `use_relays: false`. Иначе `use_relays: true`. Для light-1: `use_relays: false`.
+#### 1.3 use_relays: false на relay-сервере ✅
+**Результат:** Для relay-лайтхауса `use_relays: false`, для NAT-хостов `use_relays: true`, для публичных `use_relays: false`.
 
----
+### Фаза 2: Исправления генератора
 
-## Фаза 2: Высокий приоритет
+#### 2.1 initiating_version: 2 — ОТМЕНЕНО ❌
+Бессмыслен для чистой v2 сети.
 
-### 2.1 initiating_version: 2
-**Статус: ОТМЕНЕНО** ❌
-**Задача:** В render_host_config() добавить `initiating_version: 2` при генерации v2.
-**Причина отмены:** initiating_version применяется ТОЛЬКО если оба v1 и v2 сертификата настроены одновременно. В нашем случае используется только v2, этот параметр бессмыслен. Документация Nebula подтверждает: "This setting only applies if both a v1 and a v2 certificate are configured". Удалён из шаблона.
+#### 2.2 preferred_ranges ✅
+Добавлено в оба шаблона.
 
-### 2.2 Добавить preferred_ranges
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Добавить preferred_ranges в шаблоны.
-**Результат:** Добавлено `preferred_ranges: ["192.168.10.0/24"]` в оба шаблона (host и lighthouse). Приоритет — локальная сеть 192.168.10.0/24.
+#### 2.3 tunnels.drop_inactive ✅
+Добавлено в оба шаблона.
 
-### 2.3 Добавить tunnels.drop_inactive
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Добавить `drop_inactive: true` в tun секцию шаблонов.
-**Результат:** Добавлено `tunnels: { drop_inactive: true, inactivity_timeout: 10m }` в оба шаблона (host и lighthouse). Активны для Nebula >= v1.9.6.
+#### 2.4 Убрать дубликат firewall ✅
+Удалён.
 
-### 2.4 Убрать дубликат firewall rule
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Удалить дубликат в шаблоне хоста.
-**Результат:** Удалена вторая identical rule (port:any, proto:any, host:any) из inbound секции. Осталась одна.
+### Фаза 3: Прочие исправления
+
+#### 3.1 Безопасная замена имени сертификата ✅
+`{{HOST_NAME}}` вместо `GPD_win_4`.
+
+#### 3.2 Inline CA ✅
+`build_inline_ca_block()` + `ca_pem` в master-конфе.
+
+#### 3.3 Key-based signing ✅
+Параметр `in_pub` + `-in-pub` в команде.
 
 ---
 
-## Фаза 3: Средний приоритет
+## ⬜ Следующие задачи (по предложениям)
 
-### 3.1 Безопасная замена имени сертификата
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Заменить на переменную или регулярное выражение.
-**Результат:** В шаблоне `GPD_win_4.crt/key` заменено на `{{HOST_NAME}}.crt/key`. Генератор теперь заменяет `{{HOST_NAME}}` на имя хоста при генерации. Проверено — вывод корректный, GPD_win_4 полностью убран.
+### 🔴 P1 — Безопасность ✅ ВЫПОЛНЕНО
 
-### 3.2 Добавить inline CA
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Поддержка PEM inline в конфиге.
-**Результат:** В `config-nebula.yaml` добавлено поле `ca_pem`. В генераторе добавлена функция `build_inline_ca_block()` — строит YAML block scalar из CA PEM. В `render_host_config()` и `render_lighthouse_config()` добавлена обработка: если `ca_pem` не пустой, `pki.ca` заменяется на inline block. В `main()` добавлено чтение `ca_pem` и передача в `render_host_config()`/`render_lighthouse_config()`.
+#### 1.1 ca_key_path — оффлайн CA ✅
+**Выполнено:** Добавлено поле `ca_key_path` в `config-nebula.yaml`. Генератор читает его и передаёт во внешние функции. Если ключ задан — используется для подписи напрямую, `ca.key` не копируется в `output/ca/`.
+**Результат:** External CA key passed to `generate_node_certificate()` via `write_config()`. No `ca.key` copy to output when `ca_key_path` is set.
 
-### 3.3 Добавить key-based signing
-**Статус: ВЫПОЛНЕНО** ✅
-**Задача:** Добавить поддержку nebula-cert sign -in-pub.
-**Результат:** В `config-nebula.yaml` добавлено поле `in_pub` (публичный адрес для -in-pub). В `generate_node_certificate()` добавлен параметр `in_pub` — если установлен, к команде добавляется `-in-pub <addr>`. `in_pub` передан через `write_config()`, `generate_all_host_certs()` и `main()`.
+#### 1.2 Харденить nebula_service.sh ✅
+**Выполнено:** `nebula_service.sh` обновлён:
+- Пользователь `nebula` (не root)
+- `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
+- `CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
+- `ProtectSystem=strict`, `ProtectHome=true`, `NoNewPrivileges=true`
+- `ReadWritePaths=/etc/nebula` для записи конфига
+- `useradd --system` для создания пользователя
 
----
+### 🟠 P2 — Надёжность кода
 
-## Проверки после выполнения
+#### 2.1 Pydantic для валидации конфига
+**Проблема:** Валидация написана на чистом Python, сложно поддерживать при усложнении схемы.
+**Решение:** Описать схему `config-nebula.yaml` через Pydantic — CIDR-проверка IP, диапазон порта 0-65535, обязательные поля.
 
-1. python3 generate_configs.py --generate-ca
-2. python3 generate_configs.py
-3. Проверить output/*/config.yaml:
-   - relays: секция есть
-   - am_relay: true на lh
-   - use_relays: false на lh
-   - initiating_version: 2
-   - preferred_ranges есть
-   - drop_inactive: true
-   - нет дубликатов firewall
-   - static_host_map заполнен
-4. Проверить IP-конфликты
+#### 2.2 ipaddress stdlib
+**Проблема:** static_host_map требует чистый IP без маски `/24`, пользователь дублирует данные.
+**Решение:** `str(ipaddress.ip_interface("192.168.10.100/24").ip)` — автоотсечение маски.
+
+### 🟡 P3 — Удобство
+
+#### 3.1 --push: автоматическая доставка
+**Проблема:** Пользователь вручную копирует конфиги на хосты.
+**Решение:** Добавить поле `ssh_target: user@server-ip:/etc/nebula/` в конфиг. Флаг `--push` — scp/paramiko + перезапуск nebula.
+
+#### 3.2 --ansible-inventory
+**Проблема:** Нет интеграции с Ansible.
+**Решение:** Флаг `--ansible-inventory` — преобразование в динамический инвентарь JSON/YAML.
+
+### 🟢 P4 — DevOps
+
+#### 4.1 pytest
+**Проблема:** Нет автоматических тестов.
+**Решение:** 2-3 теста: валидация конфига, ошибка relay для NAT, структура сгенерированного YAML.
+
+#### 4.2 GitHub Actions CI
+**Проблема:** Нет CI.
+**Решение:** `.github/workflows/ci.yml` — black/flake8/ruff + pytest на каждый пуш.
