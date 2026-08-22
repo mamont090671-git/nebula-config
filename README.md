@@ -17,7 +17,7 @@
 ## Требования
 
 - Python 3.8+
-- Бинарники Nebula v2 (`nebula-cert` из https://github.com/slackhq/nebula/releases)
+- Бинарники Nebula v2 — загружаются скриптом: `bash setup-binaries.sh`
 - Для IPv6: сборка Nebula должна поддерживать IPv6
 
 ## Структура проекта
@@ -27,23 +27,19 @@ nebula-config/
 ├── config-nebula.yaml          # Мастер-файл конфигурации сети
 ├── generate_configs.py         # Основной генератор конфигураций
 ├── generate_deploy.sh          # Скрипт для создания deploy.sh
+├── setup-binaries.sh           # Скрипт загрузки бинарников Nebula
 ├── example-config.yml          # Пример мастер-конфига
 ├── todo-later.md               # Задачи на будущее
 ├── plan-fixes.md               # План выполненных исправлений
 ├── for-all/
-│   ├── nebula                  # Бинарник nebula
-│   ├── nebula-cert             # Бинарник для сертификатов
 │   └── nebula_service.sh       # Скрипт для systemd сервиса
-├── host/
-│   └── config.yaml             # Шаблон конфигурации узла
-├── lighthouse/
-│   └── config.yaml             # Шаблон конфигурации маяка
-├── output/                     # Сгенерированные конфигурации
-│   ├── ca/                     # CA сертификаты
-│   ├── node-name/              # Конфигурации узлов
-│   └── lighthouse-name/        # Конфигурации маяков
+├── templates/
+│   └── config.yaml             # Единый шаблон конфигурации
 └── README.md
 ```
+
+> **Примечание:** `output/`, `__pycache__/` и бинарники игнорируются git.
+> Перед использованием выполните `bash setup-binaries.sh`.
 
 ## Формат конфигурации
 
@@ -242,27 +238,6 @@ cd output/server-1
    sudo systemctl start nebula
    ```
 
-## Генерация сертификатов
-
-### CA сертификат
-
-```bash
-./for-all/nebula-cert ca -name "my-network" -version 2 -out-key ca.key -out-crt ca.crt
-```
-
-### Сертификат узла
-
-```bash
-./for-all/nebula-cert sign \
-  -name "server-1" \
-  -ip "192.168.10.100/24,fd00:1234:5678:a::100/64" \
-  -groups "home,ssh" \
-  -ca-crt ca.crt \
-  -ca-key ca.key \
-  -out-crt server-1.crt \
-  -out-key server-1.key
-```
-
 ## Верификация
 
 После каждой генерации автоматически запускается проверка:
@@ -284,7 +259,8 @@ python3 generate_configs.py --generate-ca
 ### Ошибка "nebula-cert not found"
 
 ```bash
-python3 generate_configs.py --cert-path /путь/к/nebula-cert
+bash setup-binaries.sh
+# или: python3 generate_configs.py --cert-path /путь/к/nebula-cert
 ```
 
 ### Пересоздать всё
