@@ -140,6 +140,8 @@ relays:
 - Запуск: `pytest tests/test_config.py -v`
 - Результат: 23 passed, 0 failed
 
-#### 4.2 GitHub Actions CI
-**Проблема:** Нет CI.
-**Решение:** `.github/workflows/ci.yml` — black/flake8/ruff + pytest на каждый пуш.
+#### 4.2 GitHub Actions CI ✅
+**Выполнено:** `.github/workflows/ci.yml`:
+- Lint: `ruff check` + `ruff format --check`
+- Test: `pytest -v` + `validators.py`
+- Запускается на push/PR в master/main
