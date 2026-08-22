@@ -1,0 +1,7 @@
+# Nebula config output (generated per node)
+output/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

@@ -1,0 +1,77 @@
+# Nebula unified config template
+# Variables: {{HOST_NAME}}, {{AM_RELAY}}, {{USE_RELAYS}}, {{RELAYS}}, {{LH_HOSTS}}
+# {{STATIC_HOST_MAP}}, {{LISTEN_HOST}}, {{LISTEN_PORT}}, {{FIREWALL_EXTRA_INBOUND}}
+
+# PKI credentials (V2)
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/{{HOST_NAME}}.crt
+  key: /etc/nebula/{{HOST_NAME}}.key
+
+# Static host map (populated by generator)
+# {{STATIC_HOST_MAP}}
+
+# Lighthouse settings
+lighthouse:
+  am_relay: {{AM_RELAY}}
+  interval: 60
+  hosts:
+    # {{LH_HOSTS}}
+
+# Listen address
+listen:
+  host: "{{LISTEN_HOST}}"
+  port: {{LISTEN_PORT}}
+
+# NAT punchy settings
+punchy:
+  punch: true
+  respond: true
+  delay: 1s
+
+# Relay servers (populated by generator)
+relays:
+  # {{RELAYS}}
+
+relay:
+  use_relays: {{USE_RELAYS}}
+
+# Preferred ranges
+preferred_ranges:
+  - "192.168.10.0/24"
+
+# Virtual interface
+tun:
+  dev: nebula1
+  tx_queue: 500
+  mtu: 1300
+  routes:
+  unsafe_routes:
+
+# Tunnel management
+tunnels:
+  drop_inactive: true
+  inactivity_timeout: 10m
+
+# Logging
+logging:
+  level: info
+  format: text
+
+# Firewall
+firewall:
+  conntrack:
+    tcp_timeout: 12m
+    udp_timeout: 3m
+    default_timeout: 10m
+
+  outbound:
+    - port: any
+      proto: any
+      host: any
+
+  inbound:
+    - port: any
+      proto: any
+      host: any
+# {{FIREWALL_EXTRA_INBOUND}}
