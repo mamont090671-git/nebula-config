@@ -105,15 +105,27 @@ relays:
 - `str(ipaddress.ip_interface(ipv4_raw).ip)` — чистый IP без маски
 - `str(ipaddress.ip_interface(ipv6_raw).ip)` — чистый IPv6 без маски
 
-### 🟡 P3 — Удобство
+### 🟡 P3 — Удобство ✅ ВЫПОЛНЕНО
 
-#### 3.1 --push: автоматическая доставка
-**Проблема:** Пользователь вручную копирует конфиги на хосты.
-**Решение:** Добавить поле `ssh_target: user@server-ip:/etc/nebula/` в конфиг. Флаг `--push` — scp/paramiko + перезапуск nebula.
+#### 3.1 --push: автоматическая доставка ✅
+**Выполнено:**
+- Поле `ssh_target: user@host:/etc/nebula` в конфиге для каждого узла
+- Флаг `--push` в генераторе
+- Функция `deploy_configs()` — scp всех файлов из `output/<node>/` на удалённый сервер
+- Автоматический `systemctl restart nebula` после копирования
+- Пропуск узлов без `ssh_target`
+- Использование: `python3 generate_configs.py --push`
 
-#### 3.2 --ansible-inventory
-**Проблема:** Нет интеграции с Ansible.
-**Решение:** Флаг `--ansible-inventory` — преобразование в динамический инвентарь JSON/YAML.
+#### 3.2 --ansible-inventory ✅
+**Выполнено:** Создан `nebula_inventory.py` — динамический инвентарь Ansible:
+- Читает `config-nebula.yaml` и отдаёт JSON inventory
+- Группа `Nebula` со всеми узлами
+- `hostvars` с переменными (IP, порт, группы, nebula_type)
+- Группы из конфига (home, prod, dev и т.д.)
+- Использование:
+  - `ansible-inventory --list -i nebula_inventory.py`
+  - `ansible-playbook -i nebula_inventory.py deploy.yml --limit Nebula`
+  - `ansible-playbook -i nebula_inventory.py deploy.yml --limit home`
 
 ### 🟢 P4 — DevOps
 

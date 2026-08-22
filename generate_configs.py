@@ -507,6 +507,61 @@ def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None):
     return fail_count == 0
 
 
+def deploy_configs(config, lighthouses, hosts):
+    """Деплой конфигов на удалённые сервера через ssh_target."""
+    all_nodes = {}
+    for name, data in lighthouses.items():
+        all_nodes[name] = data
+    for name, data in hosts.items():
+        all_nodes[name] = data
+    
+    deployed = 0
+    
+    for node_name, node_data in all_nodes.items():
+        ssh_target = node_data.get('ssh_target')
+        if not ssh_target:
+            print(f"  ⊘ {node_name}: нет ssh_target, пропускаю")
+            continue
+        
+        # Парсим user@host:/path
+        parts = ssh_target.split(':')
+        if len(parts) != 2:
+            print(f"  ✗ {node_name}: неверный формат ssh_target: {ssh_target}")
+            continue
+        
+        remote_host, remote_path = parts
+        
+        node_dir = OUTPUT_DIR / node_name
+        if not node_dir.exists():
+            print(f"  ✗ {node_name}: выходная папка не найдена")
+            continue
+        
+        # Копируем все файлы из node_dir на удалённый сервер
+        files_copied = []
+        for item in node_dir.iterdir():
+            if item.is_file():
+                remote_file = f"{ssh_target}/{item.name}"
+                cmd = f'scp "{item}" "{remote_host}:{remote_file}"'
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    files_copied.append(item.name)
+                    print(f"  ✓ {node_name}: {item.name} → {remote_host}")
+                else:
+                    print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
+        
+        # Перезапускаем nebula на удалённом сервере
+        if files_copied:
+            ssh_cmd = f'ssh "{remote_host}" "systemctl restart nebula"'
+            result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"  ↻ {node_name}: nebula перезапущен на {remote_host}")
+                deployed += 1
+            else:
+                print(f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED")
+    
+    return deployed
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Генератор конфигураций Nebula VPN',
@@ -553,6 +608,8 @@ def main():
                         help='Сгенерировать CA-сертификат')
     parser.add_argument('--generate-host-certs', action='store_true',
                         help='Сгенерировать сертификаты для всех узлов')
+    parser.add_argument('--push', action='store_true',
+                        help='Развернуть сгенерированные конфиги на удалённые сервера через ssh_target')
     parser.add_argument('--cert-path', type=str, default=None,
                         help='Путь к бинарнику nebula-cert (по умолчанию из PATH или for-all/)')
     
@@ -680,6 +737,14 @@ def main():
     
     # Верификация сгенерированных конфигов
     verify_generated_configs(config, lighthouses, hosts, relay_servers)
+    
+    # P3.1: Деплой через ssh_target
+    if args.push:
+        deployed = deploy_configs(config, lighthouses, hosts)
+        if deployed:
+            print(f"\n✓ Развернуто на {deployed} узлах")
+        else:
+            print("\n⚠ Деплой пропущен (нет ssh_target или ошибка)")
     
     print("\n" + "=" * 50)
     print(f"Готово! Файлы сохранены в: {OUTPUT_DIR}/")

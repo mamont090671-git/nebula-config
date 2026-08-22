@@ -34,6 +34,7 @@ hosts:
     public_ip: 31.58.33.31
     port: '4242'
     type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
   RU:
     groups: home
     nebula_ip:
@@ -42,6 +43,7 @@ hosts:
     port: '4242'
     public_ip: 158.156.139.25
     type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
   gpd:
     groups: home,ssh,admins
     nebula_ip:
@@ -49,6 +51,7 @@ hosts:
       ipv6: fd00:1234:5678:a::102/64
     port: '0'
     type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
   laptop-1:
     groups: home,ssh,admins
     nebula_ip:
@@ -56,6 +59,7 @@ hosts:
       ipv6: fd00:1234:5678:a::103/64
     port: '0'
     type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
   opi:
     groups: admins,ssh,home
     nebula_ip:
@@ -63,3 +67,4 @@ hosts:
       ipv6: fd00:1234:5678:a::105/64
     port: '0'
     type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
