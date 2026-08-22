@@ -41,7 +41,6 @@ nebula-config/
 │   └── workflows/
 │       └── ci.yml              # GitHub Actions CI
 ├── output/                     # Сгенерированные конфиги (gitignore)
-├── AGENTS.md                   # Правила для AI-агентов
 └── plan-fixes.md               # План выполненных задач
 ```
 
@@ -154,8 +153,16 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 ### Тесты
 
 ```bash
+# Запуск всех тестов
 pytest tests/test_config.py -v
-# 23 passed
+
+# 6 классов тестов, 23 теста:
+# - TestNebulaIPValidation (5 тестов): IPv4/IPv6 CIDR
+# - TestHostConfigValidation (6 тестов): порт, public_ip, nebula_ip
+# - TestLighthouseConfigValidation (2 теста): am_relay без public_ip
+# - TestNebulaConfigValidation (4 теста): валидный конфиг, пустой net-name, дубликаты relay
+# - TestValidateConfigSafe (3 теста): safe валидация
+# - TestRealConfigValidation (2 теста): реальный конфиг, relay для NAT
 ```
 
 ### Генерация CA
@@ -211,7 +218,10 @@ sudo systemctl enable nebula
 sudo systemctl start nebula
 ```
 
-Сервис запущен от пользователя `nebula` с ограниченным набором capabilities.
+Сервис запущен от пользователя `nebula` с ограниченным набором capabilities:
+- `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
+- `ProtectSystem=strict`, `ProtectHome=true`, `NoNewPrivileges=true`
+- `ReadWritePaths=/etc/nebula`
 
 ## Верификация
 
@@ -240,7 +250,3 @@ GitHub Actions: `ruff check` + `ruff format --check` + `pytest` на кажды�
 ## План работ
 
 См. [plan-fixes.md](plan-fixes.md) — все задачи выполнены.
-
-## AGENTS.md
-
-См. [AGENTS.md](AGENTS.md) — правила для AI-агентов (не трогать templates/).
