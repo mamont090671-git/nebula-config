@@ -144,4 +144,18 @@ relays:
 **Выполнено:** `.github/workflows/ci.yml`:
 - Lint: `ruff check` + `ruff format --check`
 - Test: `pytest -v` + `validators.py`
-- Запускается на push/PR в master/main
+|- Запускается на push/PR в master/main
+
+### 🔵 P5 — Отказоустойчивость ✅ ВЫПОЛНЕНО
+
+#### 5.1 --push: хэш-фильтрация (idempotency) ✅
+**Выполнено:** `deploy_configs()` с хэш-сравнением sha256:
+- Алгоритм: генерация → локальный хэш → фильтрация изменённых → SCP → селективный restart
+- `compute_file_hash()` — sha256 локального файла
+- `compute_remote_file_hash()` — scp файла на сервер + sha256sum
+- Пропуск unchanged хостов (= символ пропущено)
+- `!` — файл не найден на сервере
+- `~` — файл изменился, копирую
+- `=` — всё unchanged, пропускаю
+- Restart nebula только для реально изменившихся хостов
+- Счётчики: deployed / skipped / failed

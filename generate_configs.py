@@ -507,8 +507,33 @@ def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None):
     return fail_count == 0
 
 
+def compute_file_hash(filepath):
+    """Вычисляет sha256 хэш файла."""
+    import hashlib
+    h = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        for chunk in iter(lambda: f.read(8192), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def compute_remote_file_hash(ssh_target, remote_path):
+    """Вычисляет sha256 хэш файла на удалённом сервере через md5sum/sha256sum."""
+    cmd = f'scp -q "{ssh_target}:{remote_path}" /dev/stdout | sha256sum'
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.returncode == 0:
+        return result.stdout.split()[0]
+    return None
+
+
 def deploy_configs(config, lighthouses, hosts):
-    """Деплой конфигов на удалённые сервера через ssh_target."""
+    """Деплой конфигов на удалённые сервера через ssh_target с хэш-фильтрацией.
+    
+    Алгоритм:
+    1. Генерация -> локальный подсчёт хэшей -> фильтрация изменённых
+    2. SCP только для изменённых файлов
+    3. Селективный restart nebula только для изменившихся хостов
+    """
     all_nodes = {}
     for name, data in lighthouses.items():
         all_nodes[name] = data
@@ -516,6 +541,8 @@ def deploy_configs(config, lighthouses, hosts):
         all_nodes[name] = data
     
     deployed = 0
+    skipped = 0
+    failed = 0
     
     for node_name, node_data in all_nodes.items():
         ssh_target = node_data.get('ssh_target')
@@ -527,29 +554,57 @@ def deploy_configs(config, lighthouses, hosts):
         parts = ssh_target.split(':')
         if len(parts) != 2:
             print(f"  ✗ {node_name}: неверный формат ssh_target: {ssh_target}")
+            failed += 1
             continue
         
-        remote_host, remote_path = parts
+        remote_host, remote_base = parts
         
         node_dir = OUTPUT_DIR / node_name
         if not node_dir.exists():
             print(f"  ✗ {node_name}: выходная папка не найдена")
+            failed += 1
             continue
         
-        # Копируем все файлы из node_dir на удалённый сервер
-        files_copied = []
-        for item in node_dir.iterdir():
-            if item.is_file():
-                remote_file = f"{ssh_target}/{item.name}"
-                cmd = f'scp "{item}" "{remote_host}:{remote_file}"'
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                if result.returncode == 0:
-                    files_copied.append(item.name)
-                    print(f"  ✓ {node_name}: {item.name} → {remote_host}")
-                else:
-                    print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
+        # Собираем список файлов для деплоя
+        critical_files = {'config.yaml', 'ca.crt'}
+        all_files = [item for item in node_dir.iterdir() if item.is_file()]
+        has_critical = any(f.name in critical_files for f in all_files)
         
-        # Перезапускаем nebula на удалённом сервере
+        # Проверяем хэши на сервере
+        needs_deploy = has_critical
+        if has_critical:
+            for item in all_files:
+                remote_path = f"{remote_base}/{item.name}"
+                local_hash = compute_file_hash(item)
+                remote_hash = compute_remote_file_hash(ssh_target, remote_path)
+                if remote_hash is None:
+                    # Файл не существует на сервере — нужно копировать
+                    needs_deploy = True
+                    print(f"  ! {node_name}: {item.name} не найден на сервере, копирую")
+                    break
+                if local_hash != remote_hash:
+                    needs_deploy = True
+                    print(f"  ~ {node_name}: {item.name} изменился, копирую")
+                    break
+        
+        if not needs_deploy:
+            print(f"  = {node_name}: всё unchanged, пропускаю")
+            skipped += 1
+            continue
+        
+        # Деплоим
+        files_copied = []
+        for item in all_files:
+            remote_path = f"{remote_base}/{item.name}"
+            cmd = f'scp "{item}" "{ssh_target}:{remote_path}"'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if result.returncode == 0:
+                files_copied.append(item.name)
+                print(f"  ✓ {node_name}: {item.name} → {remote_host}")
+            else:
+                print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
+        
+        # Перезапускаем nebula только если есть изменения
         if files_copied:
             ssh_cmd = f'ssh "{remote_host}" "systemctl restart nebula"'
             result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
@@ -557,7 +612,17 @@ def deploy_configs(config, lighthouses, hosts):
                 print(f"  ↻ {node_name}: nebula перезапущен на {remote_host}")
                 deployed += 1
             else:
-                print(f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED")
+                print(f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED: {result.stderr[:200]}")
+                failed += 1
+        else:
+            print(f"  ✗ {node_name}: нет файлов скопировано")
+            failed += 1
+    
+    if skipped:
+        print(f"\n  Пропущено unchanged: {skipped}")
+    if failed:
+        print(f"\n  Ошибок: {failed}")
+    print(f"  Развернуто: {deployed}")
     
     return deployed
 
