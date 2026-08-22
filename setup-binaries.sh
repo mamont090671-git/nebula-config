@@ -19,36 +19,32 @@ case "$ARCH" in
         ;;
 esac
 
-# Определяем ОС
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+# GitHub uses 'linux', not 'Linux'
+NEBULA_OS="linux"
 
-# Загружаем последнюю версию
-echo "Загрузка Nebula для $OS/$ARCH..."
+NEBULA_ARCHIVE="nebula-${NEBULA_OS}-${NEBULA_ARCH}.tar.gz"
+DOWNLOAD_URL="https://github.com/slackhq/nebula/releases/latest/download/${NEBULA_ARCHIVE}"
 
-NEBULA_URL="https://github.com/slackhq/nebula/releases/latest/download/nebula-$OS-$ARCH"
-NEBULA_CERT_URL="https://github.com/slackhq/nebula/releases/latest/download/nebula-cert-$OS-$ARCH"
+echo "Загрузка Nebula для ${NEBULA_OS}/${NEBULA_ARCH}..."
+echo "  Архив: ${NEBULA_ARCHIVE}"
+echo "  URL: ${DOWNLOAD_URL}"
 
-# nebula
-if [ ! -f "$TARGET_DIR/nebula" ] || ! "$TARGET_DIR/nebula" --version > /dev/null 2>&1; then
-    echo "  [1/2] nebula..."
-    curl -fsSL -o "$TARGET_DIR/nebula.tmp" "$NEBULA_URL"
-    chmod +x "$TARGET_DIR/nebula.tmp"
-    mv "$TARGET_DIR/nebula.tmp" "$TARGET_DIR/nebula"
-    echo "  ✓ nebula установлен"
-else
-    echo "  ✓ nebula уже есть"
-fi
+# Скачиваем и распаковываем
+TMPDIR=$(mktemp -d)
+curl -fsSL -o "$TMPDIR/$NEBULA_ARCHIVE" "$DOWNLOAD_URL"
 
-# nebula-cert
-if [ ! -f "$TARGET_DIR/nebula-cert" ] || ! "$TARGET_DIR/nebula-cert" version > /dev/null 2>&1; then
-    echo "  [2/2] nebula-cert..."
-    curl -fsSL -o "$TARGET_DIR/nebula-cert.tmp" "$NEBULA_CERT_URL"
-    chmod +x "$TARGET_DIR/nebula-cert.tmp"
-    mv "$TARGET_DIR/nebula-cert.tmp" "$TARGET_DIR/nebula-cert"
-    echo "  ✓ nebula-cert установлен"
-else
-    echo "  ✓ nebula-cert уже есть"
-fi
+# Распаковываем в for-all/
+cd "$TMPDIR"
+tar xzf "$TMPDIR/$NEBULA_ARCHIVE"
+
+# Копируем бинарники
+cp -f nebula nebula-cert "$TARGET_DIR/"
+chmod +x "$TARGET_DIR/nebula" "$TARGET_DIR/nebula-cert"
+
+rm -rf "$TMPDIR"
 
 echo ""
 echo "Бинарники в: $TARGET_DIR/"
+echo "  nebula:     $(file "$TARGET_DIR/nebula")"
+echo "  nebula-cert: $(file "$TARGET_DIR/nebula-cert")"
