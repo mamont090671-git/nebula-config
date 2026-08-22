@@ -1,14 +1,18 @@
 # Генератор конфигураций Nebula VPN
 
-Генератор конфигураций для сети [Nebula VPN](https://github.com/slackhq/nebula) на Python. Автоматически создаёт конфигурации узлов и сертификаты на основе единого мастер-файла.
+Генератор конфигураций для сети [Nebula VPN](https://github.com/slackhq/nebula) на Python. Автоматически создаёт конфигурации узлов, сертификаты и проверяет их корректность на основе единого мастер-файла.
 
 ## Возможности
 
 - **Автоматическая генерация конфигураций** из `config-nebula.yaml`
 - **Генерация сертификатов** для CA и всех узлов (формат V2)
 - **Статические карты хостов** с поддержкой IPv4 и IPv6
-- **Скрипты развертывания** для удобного развертывания на целевые серверы
-- **Поддержка резервных копий** существующих конфигураций
+- **Верификация сгенерированных конфигов** — автоматическая проверка relay, use_relays, static_host_map, IPv6 hosts
+- **Relay-поддержка** — автоматическая генерация relays для NAT-хостов
+- **Параметризованные скрипты развертывания** — deploy.sh принимает путь как аргумент
+- **Inline CA** — поддержка CA PEM прямо в конфиге
+- **Key-based signing** — поддержка `-in-pub` для подписи сертификатов
+- **Резервные копии** — автоматический бэкап существующих конфигов
 
 ## Требования
 
@@ -22,10 +26,13 @@
 nebula-config/
 ├── config-nebula.yaml          # Мастер-файл конфигурации сети
 ├── generate_configs.py         # Основной генератор конфигураций
-├── generate_deploy.sh          # Скрипт для создания скриптов развертывания
+├── generate_deploy.sh          # Скрипт для создания deploy.sh
+├── example-config.yml          # Пример мастер-конфига
+├── todo-later.md               # Задачи на будущее
+├── plan-fixes.md               # План выполненных исправлений
 ├── for-all/
 │   ├── nebula                  # Бинарник nebula
-│   ├── nebula-cert             # Бинарник для генерации сертификатов
+│   ├── nebula-cert             # Бинарник для сертификатов
 │   └── nebula_service.sh       # Скрипт для systemd сервиса
 ├── host/
 │   └── config.yaml             # Шаблон конфигурации узла
@@ -35,8 +42,6 @@ nebula-config/
 │   ├── ca/                     # CA сертификаты
 │   ├── node-name/              # Конфигурации узлов
 │   └── lighthouse-name/        # Конфигурации маяков
-├── host/
-├── lighthouse/
 └── README.md
 ```
 
@@ -46,6 +51,17 @@ nebula-config/
 
 ```yaml
 net-name: my-network
+
+# Relay-серверы — nebula-IP узлов, через которые клиенты за NAT проходят
+relay_servers:
+  - 192.168.10.101
+
+# Inline CA PEM (base64, необязательно)
+ca_pem: ""
+
+# Key-based signing public address (необязательно)
+in_pub: ""
+
 lighthouse:
   light-1:
     groups: home
@@ -54,15 +70,9 @@ lighthouse:
       ipv6: fd00:1234:5678:a::10/64
     port: '4242'
     public_ip: 1.2.3.4
+    am_relay: true        # true для relay-лайтхауса
     type: LH
-  light-2:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.11/24
-      ipv6: fd00:1234:5678:a::11/64
-    port: '4242'
-    public_ip: 5.6.7.8
-    type: LH
+
 hosts:
   server-1:
     groups: home,ssh
@@ -70,6 +80,7 @@ hosts:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
     public_ip: 9.10.11.12
+    port: '4242'           # 4242 = публичный IP, 0 = за NAT
     type: HOST
   laptop-1:
     groups: home,ssh,admins
@@ -77,6 +88,7 @@ hosts:
     nebula_ip:
       ipv4: 192.168.10.101/24
       ipv6: fd00:1234:5678:a::101/64
+    port: '0'              # 0 = за NAT, будет использовать relay
     type: HOST
 ```
 
@@ -85,15 +97,37 @@ hosts:
 | Поле | Описание |
 |------|----------|
 | `net-name` | Имя сети, используемое в CA сертификате |
+| `relay_servers` | Список nebula-IP relay-серверов для NAT-хостов |
+| `ca_pem` | Inline CA PEM (если пустой — используется путь /etc/nebula/ca.crt) |
+| `in_pub` | Публичный адрес для `-in-pub` (key-based signing) |
 | `lighthouse` | Конфигурации маяков сети |
 | `hosts` | Конфигурации обычных узлов |
 | `groups` | Комма-разделённый список групп доступа |
 | `nebula_ip.ipv4` | Внутренний IPv4 адрес с подсетью |
 | `nebula_ip.ipv6` | Внутренний IPv6 адрес с подсетью |
-| `port` | Порт для маяков (0 для клиентов) |
-| `public_ip` | Публичный IP для пробива NAT (только для маяков) |
-| `type` | `LH` для маяка, `HOST` для узла |
+| `port` | Порт: `4242` для публичных IP, `0` для NAT |
+| `public_ip` | Публичный IP (для публичных узлов/маяков) |
+| `am_relay` | `true` для relay-лайтхауса |
 | `name` | Имя сертификата (по умолчанию берётся имя узла) |
+
+### Relay-архитектура
+
+Для хостов за NAT (port 0) relay обязателен:
+
+**На relay-лайтхаусе:**
+```yaml
+relay:
+  am_relay: true
+  use_relays: false
+```
+
+**На NAT-клиенте (автоматически):**
+```yaml
+relays:
+  - 192.168.10.101
+relay:
+  use_relays: true
+```
 
 ## Использование
 
@@ -104,11 +138,12 @@ cd /путь/к/nebula-config
 python3 generate_configs.py
 ```
 
-Это выполнит:
-1. Создаст директорию `output/ca/` и сгенерирует CA если нет
+Выполнит:
+1. Проверит/создаст CA
 2. Сгенерирует конфигурации для всех узлов и маяков
 3. Создаст файлы `*.crt` и `*.key` для каждого узла
 4. Скопирует `ca.crt` в каждую директорию узла
+5. **Запустит верификацию** — проверит relay, use_relays, static_host_map, IPv6 hosts
 
 ### Генерация только CA-сертификата
 
@@ -145,6 +180,14 @@ bash generate_deploy.sh
 
 Создаст `deploy.sh` в каждой папке узла/маяка в `output/`.
 
+### Использование deploy.sh
+
+```bash
+cd output/server-1
+./deploy.sh                    # в /etc/nebula/ (по умолчанию)
+./deploy.sh /custom/path/      # в указанный путь
+```
+
 ## Структура выходной директории
 
 После генерации `output/` будет содержать:
@@ -161,7 +204,8 @@ output/
 │   ├── server-1.key        # Приватный ключ узла
 │   ├── nebula              # Бинарник nebula
 │   ├── nebula-cert         # Бинарник nebula-cert
-│   └── nebula_service.sh   # Скрипт systemd сервиса
+│   ├── nebula_service.sh   # Скрипт systemd сервиса
+│   └── deploy.sh           # Скрипт развертывания
 └── light-1/
     ├── ca.crt
     ├── config.yaml
@@ -169,7 +213,8 @@ output/
     ├── light-1.key
     ├── nebula
     ├── nebula-cert
-    └── nebula_service.sh
+    ├── nebula_service.sh
+    └── deploy.sh
 ```
 
 ## Развертывание
@@ -178,10 +223,8 @@ output/
 
 ```bash
 cd output/server-1
-./deploy.sh
+./deploy.sh          # скопирует в /etc/nebula/
 ```
-
-Скопирует все необходимые файлы в `/home/mamont/test-n/`.
 
 ### Ручное развертывание
 
@@ -219,6 +262,16 @@ cd output/server-1
   -out-crt server-1.crt \
   -out-key server-1.key
 ```
+
+## Верификация
+
+После каждой генерации автоматически запускается проверка:
+
+- relay_servers не пуст (если есть NAT-хосты с port 0)
+- port 0 хосты имеют `use_relays: true` и секцию `relay:`
+- relay-лайтхаус имеет `am_relay: true` и `use_relays: false`
+- static_host_map заполнен для всех клиентов
+- IPv6 hosts секция содержит все лайтхаусы
 
 ## Решение проблем
 

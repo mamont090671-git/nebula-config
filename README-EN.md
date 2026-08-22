@@ -1,42 +1,47 @@
 # Nebula VPN Config Generator
 
-Python-based configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) networks. Automatically generates node configurations and certificates from a single master configuration file.
+Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) network in Python. Automatically creates node configurations, certificates, and verifies correctness from a single master config file.
 
 ## Features
 
 - **Automatic configuration generation** from `config-nebula.yaml`
 - **Certificate generation** for CA and all nodes (V2 format)
 - **Static host maps** with IPv4 and IPv6 support
-- **Deploy scripts** for easy deployment to target servers
-- **Backup support** for existing configurations
+- **Post-generation verification** — auto-checks relay, use_relays, static_host_map, IPv6 hosts
+- **Relay support** — automatic relays generation for NAT hosts
+- **Parameterized deploy scripts** — deploy.sh accepts target path as argument
+- **Inline CA** — embedded CA PEM directly in config
+- **Key-based signing** — `-in-pub` support for certificate signing
+- **Backup support** — automatic backup of existing configs
 
 ## Requirements
 
 - Python 3.8+
-- Nebula v2 binary (`nebula-cert` from https://github.com/slackhq/nebula/releases)
-- For IPv6 support, Nebula must support IPv6 in your build
+- Nebula v2 binaries (`nebula-cert` from https://github.com/slackhq/nebula/releases)
+- IPv6 support requires Nebula build with IPv6 support
 
 ## Project Structure
 
 ```
 nebula-config/
-├── config-nebula.yaml          # Master configuration file
-├── generate_configs.py         # Main configuration generator
-├── generate_deploy.sh          # Script to generate deploy scripts
+├── config-nebula.yaml          # Network master config
+├── generate_configs.py         # Main config generator
+├── generate_deploy.sh          # Deploy script generator
+├── example-config.yml          # Example master config
+├── todo-later.md               # Future tasks
+├── plan-fixes.md               # Completed fixes plan
 ├── for-all/
 │   ├── nebula                  # Nebula binary
-│   ├── nebula-cert             # Certificate generator binary
-│   └── nebula_service.sh       # Systemd service script
+│   ├── nebula-cert             # Certificate binary
+│   └── nebula_service.sh       # systemd service script
 ├── host/
 │   └── config.yaml             # Host node template
 ├── lighthouse/
 │   └── config.yaml             # Lighthouse node template
 ├── output/                     # Generated configurations
 │   ├── ca/                     # CA certificates
-│   ├── node-name/              # Per-node configuration directories
-│   └── lighthouse-name/        # Per-lighthouse configuration directories
-├── host/
-├── lighthouse/
+│   ├── node-name/              # Per-node configs
+│   └── lighthouse-name/        # Per-lighthouse configs
 └── README.md
 ```
 
@@ -46,6 +51,17 @@ Create `config-nebula.yaml` with the following structure:
 
 ```yaml
 net-name: my-network
+
+# Relay servers — nebula IPs of nodes through which NAT clients relay
+relay_servers:
+  - 192.168.10.101
+
+# Inline CA PEM (base64, optional)
+ca_pem: ""
+
+# Key-based signing public address (optional)
+in_pub: ""
+
 lighthouse:
   light-1:
     groups: home
@@ -54,15 +70,9 @@ lighthouse:
       ipv6: fd00:1234:5678:a::10/64
     port: '4242'
     public_ip: 1.2.3.4
+    am_relay: true        # true for relay lighthouse
     type: LH
-  light-2:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.11/24
-      ipv6: fd00:1234:5678:a::11/64
-    port: '4242'
-    public_ip: 5.6.7.8
-    type: LH
+
 hosts:
   server-1:
     groups: home,ssh
@@ -70,6 +80,7 @@ hosts:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
     public_ip: 9.10.11.12
+    port: '4242'           # 4242 = public IP, 0 = behind NAT
     type: HOST
   laptop-1:
     groups: home,ssh,admins
@@ -77,6 +88,7 @@ hosts:
     nebula_ip:
       ipv4: 192.168.10.101/24
       ipv6: fd00:1234:5678:a::101/64
+    port: '0'              # 0 = behind NAT, will use relay
     type: HOST
 ```
 
@@ -85,15 +97,37 @@ hosts:
 | Field | Description |
 |-------|-------------|
 | `net-name` | Network name used in CA certificate |
+| `relay_servers` | List of relay server nebula IPs for NAT hosts |
+| `ca_pem` | Inline CA PEM (if empty, uses /etc/nebula/ca.crt) |
+| `in_pub` | Public address for `-in-pub` (key-based signing) |
 | `lighthouse` | Lighthouse node configurations |
 | `hosts` | Regular host configurations |
-| `groups` | Comma-separated group names |
+| `groups` | Comma-separated access group names |
 | `nebula_ip.ipv4` | Internal IPv4 address with CIDR |
 | `nebula_ip.ipv6` | Internal IPv6 address with CIDR |
-| `port` | Port for lighthouses (0 for clients) |
-| `public_ip` | Public IP for NAT traversal (lighthouses) |
-| `type` | `LH` for lighthouse, `HOST` for regular nodes |
+| `port` | Port: `4242` for public IPs, `0` for NAT |
+| `public_ip` | Public IP (for public nodes/lighthouses) |
+| `am_relay` | `true` for relay lighthouse |
 | `name` | Certificate name (defaults to node name) |
+
+### Relay Architecture
+
+For hosts behind NAT (port 0), relay is mandatory:
+
+**On relay lighthouse:**
+```yaml
+relay:
+  am_relay: true
+  use_relays: false
+```
+
+**On NAT client (automatic):**
+```yaml
+relays:
+  - 192.168.10.101
+relay:
+  use_relays: true
+```
 
 ## Usage
 
@@ -105,10 +139,11 @@ python3 generate_configs.py
 ```
 
 This will:
-1. Create `output/ca/` directory and generate CA if not exists
+1. Check/create CA
 2. Generate configurations for all nodes and lighthouses
 3. Create `*.crt` and `*.key` files for each node
 4. Copy `ca.crt` to each node directory
+5. **Run verification** — check relay, use_relays, static_host_map, IPv6 hosts
 
 ### Generate CA Certificate Only
 
@@ -131,7 +166,7 @@ python3 generate_configs.py --only-lights --light light-1
 python3 generate_configs.py --generate-host-certs
 ```
 
-### Using Custom nebula-cert Path
+### Use Custom nebula-cert Path
 
 ```bash
 python3 generate_configs.py --cert-path /path/to/nebula-cert
@@ -143,11 +178,19 @@ python3 generate_configs.py --cert-path /path/to/nebula-cert
 bash generate_deploy.sh
 ```
 
-This creates `deploy.sh` in each node/lighthouse directory in `output/`.
+Creates `deploy.sh` in each node/lighthouse directory under `output/`.
+
+### Use deploy.sh
+
+```bash
+cd output/server-1
+./deploy.sh                    # to /etc/nebula/ (default)
+./deploy.sh /custom/path/      # to specified path
+```
 
 ## Output Directory Structure
 
-After generation, `output/` will contain:
+After generation, `output/` contains:
 
 ```
 output/
@@ -155,13 +198,14 @@ output/
 │   ├── ca.crt              # CA certificate
 │   └── ca.key              # CA private key
 ├── server-1/
-│   ├── ca.crt              # CA certificate (for verification)
+│   ├── ca.crt              # CA certificate (verification)
 │   ├── config.yaml         # Node configuration
 │   ├── server-1.crt        # Node certificate
 │   ├── server-1.key        # Node private key
 │   ├── nebula              # Nebula binary
-│   ├── nebula-cert         # Certificate binary
-│   └── nebula_service.sh   # Systemd service script
+│   ├── nebula-cert         # Nebula-cert binary
+│   ├── nebula_service.sh   # systemd service script
+│   └── deploy.sh           # Deploy script
 └── light-1/
     ├── ca.crt
     ├── config.yaml
@@ -169,7 +213,8 @@ output/
     ├── light-1.key
     ├── nebula
     ├── nebula-cert
-    └── nebula_service.sh
+    ├── nebula_service.sh
+    └── deploy.sh
 ```
 
 ## Deployment
@@ -178,10 +223,8 @@ output/
 
 ```bash
 cd output/server-1
-./deploy.sh
+./deploy.sh          # copies to /etc/nebula/
 ```
-
-This copies all necessary files to `/home/mamont/test-n/`.
 
 ### Manual Deployment
 
@@ -220,6 +263,16 @@ This copies all necessary files to `/home/mamont/test-n/`.
   -out-key server-1.key
 ```
 
+## Verification
+
+After every generation, automatic verification runs:
+
+- relay_servers is not empty (if NAT hosts with port 0 exist)
+- port 0 hosts have `use_relays: true` and `relay:` section
+- relay lighthouse has `am_relay: true` and `use_relays: false`
+- static_host_map is populated for all clients
+- IPv6 hosts section contains all lighthouses
+
 ## Troubleshooting
 
 ### "CA not found" Error
@@ -234,25 +287,25 @@ python3 generate_configs.py --generate-ca
 python3 generate_configs.py --cert-path /path/to/nebula-cert
 ```
 
-### Re-generate All
+### Regenerate Everything
 
 ```bash
 rm -rf output/*
 python3 generate_configs.py
 ```
 
-## Security Notes
+## Security Recommendations
 
 - Keep `ca.key` secure and offline
-- Only share `ca.crt` to add new nodes
-- Node certificates and keys can be safely distributed to their respective hosts
+- Distribute `ca.crt` only for adding new nodes
+- Node certificates and keys can be safely distributed to their owners
 - Use separate groups for different access levels
-- Rotate certificates periodically
+- Rotate certificates regularly
 
 ## License
 
-This project is provided as-is for managing Nebula VPN configurations.
+This project is provided "as is" for managing Nebula VPN configurations.
 
 ## Contributing
 
-Issues and pull requests welcome. Please ensure your changes maintain compatibility with existing functionality.
+Issues and pull requests are welcome. Please ensure your changes maintain compatibility with existing functionality.
