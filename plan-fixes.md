@@ -89,15 +89,21 @@ relays:
 - `ReadWritePaths=/etc/nebula` для записи конфига
 - `useradd --system` для создания пользователя
 
-### 🟠 P2 — Надёжность кода
+### 🟠 P2 — Надёжность кода ✅ ВЫПОЛНЕНО
 
-#### 2.1 Pydantic для валидации конфига
-**Проблема:** Валидация написана на чистом Python, сложно поддерживать при усложнении схемы.
-**Решение:** Описать схему `config-nebula.yaml` через Pydantic — CIDR-проверка IP, диапазон порта 0-65535, обязательные поля.
+#### 2.1 Pydantic для валидации конфига ✅
+**Выполнено:** Создан `validators.py` с Pydantic V2 моделями:
+- `NebulaIP` — валидация CIDR для IPv4/IPv6
+- `LighthouseConfig` — валидация портов (0-65535), public_ip, am_relay
+- `HostConfig` — валидация портов (0-65535), public_ip
+- `NebulaConfig` — валидация net-name, relay_servers (нет дубликатов), обязательных полей
+- Функция `validate_config_safe()` — безопасная валидация (не бросает исключение)
+- Интеграция в `main()` — конфиг блокируется при ошибке
 
-#### 2.2 ipaddress stdlib
-**Проблема:** static_host_map требует чистый IP без маски `/24`, пользователь дублирует данные.
-**Решение:** `str(ipaddress.ip_interface("192.168.10.100/24").ip)` — автоотсечение маски.
+#### 2.2 ipaddress stdlib ✅
+**Выполнено:** Автоотсечение маски `/24` в `build_static_host_map_for_client()`:
+- `str(ipaddress.ip_interface(ipv4_raw).ip)` — чистый IP без маски
+- `str(ipaddress.ip_interface(ipv6_raw).ip)` — чистый IPv6 без маски
 
 ### 🟡 P3 — Удобство
 

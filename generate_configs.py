@@ -20,7 +20,9 @@ import sys
 import argparse
 import shutil
 import subprocess
+import ipaddress
 from pathlib import Path
+from validators import validate_config, validate_config_safe
 
 SCRIPT_DIR = Path(__file__).parent
 MASTER_CONFIG = SCRIPT_DIR / "config-nebula.yaml"
@@ -54,8 +56,11 @@ def build_static_host_map_for_client(lighthouses):
     lines.append('  # Внутренний IPv6 маяка: [Публичный_IP:Порт]')
     
     for lh_name, lh_data in lighthouses.items():
-        ipv4 = lh_data.get('nebula_ip', {}).get('ipv4', '').split('/')[0]
-        ipv6 = lh_data.get('nebula_ip', {}).get('ipv6', '').split('/')[0]
+        ipv4_raw = lh_data.get('nebula_ip', {}).get('ipv4', '')
+        ipv6_raw = lh_data.get('nebula_ip', {}).get('ipv6', '')
+        # P2.2: Автоотсечение маски через ipaddress stdlib
+        ipv4 = str(ipaddress.ip_interface(ipv4_raw).ip) if ipv4_raw else ''
+        ipv6 = str(ipaddress.ip_interface(ipv6_raw).ip) if ipv6_raw else ''
         public_ip = lh_data.get('public_ip', '')
         port = lh_data.get('port', '')
         
@@ -587,6 +592,14 @@ def main():
     
     config = load_config()
     print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
+    
+    # P2.1: Валидация конфига через Pydantic
+    is_valid, error = validate_config_safe(config)
+    if not is_valid:
+        print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print(f"✓ Конфиг валиден (Pydantic)")
     
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
