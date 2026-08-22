@@ -127,11 +127,18 @@ relays:
   - `ansible-playbook -i nebula_inventory.py deploy.yml --limit Nebula`
   - `ansible-playbook -i nebula_inventory.py deploy.yml --limit home`
 
-### 🟢 P4 — DevOps
+### 🟢 P4 — DevOps ✅ ВЫПОЛНЕНО
 
-#### 4.1 pytest
-**Проблема:** Нет автоматических тестов.
-**Решение:** 2-3 теста: валидация конфига, ошибка relay для NAT, структура сгенерированного YAML.
+#### 4.1 pytest ✅
+**Выполнено:** Создан `tests/test_config.py` — 23 теста в 6 классов:
+- `TestNebulaIPValidation` (5 тестов): валидация IPv4/IPv6 CIDR
+- `TestHostConfigValidation` (6 тестов): порт 0-65535, non-numeric, invalid public IP, missing nebula_ip
+- `TestLighthouseConfigValidation` (2 теста): валидный LH, am_relay без public_ip
+- `TestNebulaConfigValidation` (4 теста): валидный конфиг, пустой net-name, дубликаты relay
+- `TestValidateConfigSafe` (3 теста): safe валидация (valid/invalid/port error)
+- `TestRealConfigValidation` (2 теста): реальный конфиг валиден, relay для NAT
+- Запуск: `pytest tests/test_config.py -v`
+- Результат: 23 passed, 0 failed
 
 #### 4.2 GitHub Actions CI
 **Проблема:** Нет CI.
