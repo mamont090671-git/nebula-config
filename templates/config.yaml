@@ -1,6 +1,4 @@
 # Nebula unified config template
-# Variables: {{HOST_NAME}}, {{AM_RELAY}}, {{USE_RELAYS}}, {{RELAYS}}, {{LH_HOSTS}}
-# {{STATIC_HOST_MAP}}, {{LISTEN_HOST}}, {{LISTEN_PORT}}, {{FIREWALL_EXTRA_INBOUND}}
 
 # PKI credentials (V2)
 pki:
@@ -9,14 +7,15 @@ pki:
   key: /etc/nebula/{{HOST_NAME}}.key
 
 # Static host map (populated by generator)
-# {{STATIC_HOST_MAP}}
+static_host_map:
+  # SHM
 
 # Lighthouse settings
 lighthouse:
-  am_relay: {{AM_RELAY}}
+  am_lighthouse: {{AM_AWARE}}
   interval: 60
   hosts:
-    # {{LH_HOSTS}}
+    # LHM
 
 # Listen address
 listen:
@@ -31,10 +30,11 @@ punchy:
 
 # Relay servers (populated by generator)
 relays:
-  # {{RELAYS}}
+  # RELAYS
 
 relay:
   use_relays: {{USE_RELAYS}}
+  am_relay: {{AM_RELAY}}
 
 # Preferred ranges
 preferred_ranges:
@@ -74,4 +74,4 @@ firewall:
     - port: any
       proto: any
       host: any
-# {{FIREWALL_EXTRA_INBOUND}}
+  # FIREWALL

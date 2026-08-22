@@ -1,61 +1,54 @@
-#!/bin/bash
-# Загрузка бинарников nebula и nebula-cert для текущей платформы
-# Используется: setup-binaries.sh
-# или: bash setup-binaries.sh /путь/для/сохранения
-
-set -e
+#!/usr/bin/env bash
+# Загрузка бинарников Nebula из официального репозитория
+# Использование: ./setup-binaries.sh [--dir path]
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_DIR="${1:-${SCRIPT_DIR}/for-all}"
-NEBULA_VERSION="1.9.7"
+TARGET_DIR="${2:-"$SCRIPT_DIR/for-all"}"
+mkdir -p "$TARGET_DIR"
 
-# Определяем платформу
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+# Определяем архитектуру
 ARCH=$(uname -m)
-
-case "${OS}" in
-    linux)
-        case "${ARCH}" in
-            x86_64)   PLATFORM="linux-amd64" ;;
-            aarch64)  PLATFORM="linux-arm64" ;;
-            armv7l)   PLATFORM="linux-armv7" ;;
-            *)
-                echo "Неизвестная архитектура: ${ARCH}"
-                exit 1
-                ;;
-        esac
-        ;;
-    darwin)
-        case "${ARCH}" in
-            x86_64)  PLATFORM="darwin-amd64" ;;
-            arm64)   PLATFORM="darwin-arm64" ;;
-            *)
-                echo "Неизвестная архитектура: ${ARCH}"
-                exit 1
-                ;;
-        esac
-        ;;
+case "$ARCH" in
+    x86_64)   NEBULA_ARCH="amd64" ;;
+    aarch64)  NEBULA_ARCH="arm64" ;;
+    arm64)    NEBULA_ARCH="arm64" ;;
     *)
-        echo "Неизвестная ОС: ${OS}"
+        echo "Ошибка: архитектура $ARCH не поддерживается (ожидается x86_64 или aarch64)"
         exit 1
         ;;
 esac
 
-DOWNLOAD_URL="https://github.com/slackhq/nebula/releases/download/${NEBULA_VERSION}"
-NEBULA_URL="${DOWNLOAD_URL}/nebula-${PLATFORM}"
-NEBULA_CERT_URL="${DOWNLOAD_URL}/nebula-cert-${PLATFORM}"
+# Определяем ОС
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
-mkdir -p "${TARGET_DIR}"
+# Загружаем последнюю версию
+echo "Загрузка Nebula для $OS/$ARCH..."
 
-echo "Платформа: ${PLATFORM}"
-echo "Скачивание nebula из ${NEBULA_URL}..."
-curl -fSL --retry 3 --retry-delay 5 -o "${TARGET_DIR}/nebula" "${NEBULA_URL}"
-chmod +x "${TARGET_DIR}/nebula"
-echo "✓ nebula скачан"
+NEBULA_URL="https://github.com/slackhq/nebula/releases/latest/download/nebula-$OS-$ARCH"
+NEBULA_CERT_URL="https://github.com/slackhq/nebula/releases/latest/download/nebula-cert-$OS-$ARCH"
 
-echo "Скачивание nebula-cert из ${NEBULA_CERT_URL}..."
-curl -fSL --retry 3 --retry-delay 5 -o "${TARGET_DIR}/nebula-cert" "${NEBULA_CERT_URL}"
-chmod +x "${TARGET_DIR}/nebula-cert"
-echo "✓ nebula-cert скачан"
+# nebula
+if [ ! -f "$TARGET_DIR/nebula" ] || ! "$TARGET_DIR/nebula" --version > /dev/null 2>&1; then
+    echo "  [1/2] nebula..."
+    curl -fsSL -o "$TARGET_DIR/nebula.tmp" "$NEBULA_URL"
+    chmod +x "$TARGET_DIR/nebula.tmp"
+    mv "$TARGET_DIR/nebula.tmp" "$TARGET_DIR/nebula"
+    echo "  ✓ nebula установлен"
+else
+    echo "  ✓ nebula уже есть"
+fi
 
-echo "Готово. Бинарники сохранены в ${TARGET_DIR}/"
+# nebula-cert
+if [ ! -f "$TARGET_DIR/nebula-cert" ] || ! "$TARGET_DIR/nebula-cert" version > /dev/null 2>&1; then
+    echo "  [2/2] nebula-cert..."
+    curl -fsSL -o "$TARGET_DIR/nebula-cert.tmp" "$NEBULA_CERT_URL"
+    chmod +x "$TARGET_DIR/nebula-cert.tmp"
+    mv "$TARGET_DIR/nebula-cert.tmp" "$TARGET_DIR/nebula-cert"
+    echo "  ✓ nebula-cert установлен"
+else
+    echo "  ✓ nebula-cert уже есть"
+fi
+
+echo ""
+echo "Бинарники в: $TARGET_DIR/"
