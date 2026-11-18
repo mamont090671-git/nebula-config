@@ -153,15 +153,18 @@ def render_config(template, node_name, node_data, node_type, lighthouses, relay_
         static_map = build_static_host_map_for_lighthouse(lighthouses, node_name)
         lh_hosts = build_lighthouse_hosts_for_lighthouse(lighthouses, node_name)
         am_relay_val = str(node_data.get('am_relay', False)).lower()
+        am_aware_val = 'true'
         use_relays_val = "false" if is_relay else "true"
     else:
         static_map = build_static_host_map_for_client(lighthouses)
         lh_hosts = build_lighthouse_hosts_for_client(lighthouses)
         am_relay_val = 'false'
-        use_relays_val = 'true'
+        am_aware_val = 'false'
+        port_val = str(node_data.get('port', '4242'))
+        use_relays_val = 'true' if port_val == '0' else 'false'
     
     relays_val = build_relays_servers(relay_servers) if not is_relay else '  # Нет relay-серверов'
-    listen_host = '"[::]"' if not is_lighthouse else '"::"'
+    listen_host = '[::]' if not is_lighthouse else '::'
     listen_port = str(node_data.get('port', '4242'))
     
     # Inline CA
@@ -170,14 +173,15 @@ def render_config(template, node_name, node_data, node_type, lighthouses, relay_
     # Заменяем плейсхолдеры
     result = template
     result = result.replace('{{HOST_NAME}}', node_name)
-    result = result.replace('{{STATIC_HOST_MAP}}', static_map or '# Нет static_host_map')
-    result = result.replace('{{LH_HOSTS}}', lh_hosts or '    # Нет других маяков')
+    result = result.replace('# STATIC_HOST_MAP', static_map or '# Нет static_host_map')
+    result = result.replace('    # LHM', lh_hosts or '    # Нет других маяков')
     result = result.replace('{{AM_RELAY}}', am_relay_val)
+    result = result.replace('{{AM_AWARE}}', am_aware_val)
     result = result.replace('{{USE_RELAYS}}', use_relays_val)
-    result = result.replace('{{RELAYS}}', relays_val)
+    result = result.replace('  # RELAYS', relays_val)
     result = result.replace('{{LISTEN_HOST}}', listen_host)
     result = result.replace('{{LISTEN_PORT}}', listen_port)
-    result = result.replace('{{FIREWALL_EXTRA_INBOUND}}', extra_inbound_rules or '')
+    result = result.replace('  # FIREWALL', extra_inbound_rules or '')
     
     # Inline CA замена
     if inline_ca:
