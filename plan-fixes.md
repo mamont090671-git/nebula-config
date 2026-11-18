@@ -1,7 +1,7 @@
 ---
 plan: nebula-config-fixes
 created: 2026-08-22
-status: in_progress
+status: done
 priority: critical
 ---
 
