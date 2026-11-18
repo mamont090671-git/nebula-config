@@ -5,3 +5,21 @@ output/
 __pycache__/
 *.pyc
 *.pyo
+
+# Master config — содержит IP, SSH-таргеты, CA-ключи
+config-nebula.yaml
+ca_pem
+in_pub
+ca_key_path
+
+# CA сертификаты и ключи
+output/ca/
+
+# Binaries
+for-all/nebula
+for-all/nebula-cert
+
+# Environment
+.env
+*.key
+*.pem
