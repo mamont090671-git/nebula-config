@@ -14,7 +14,6 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 - **Offline CA** — `ca_key_path` for external key
 - **Systemd hardening** — least privilege, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest on every push
-- **Security** — `ca_key_path` for offline CA
 
 ## Requirements
 
@@ -26,13 +25,12 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 
 ```
 nebula-config/
-├── config-nebula.yaml          # Network master config
 ├── generate_configs.py         # Main config generator (+ --push)
 ├── validators.py               # Pydantic config validation
 ├── nebula_inventory.py         # Dynamic Ansible inventory
 ├── setup-binaries.sh           # Nebula binary downloader
 ├── templates/
-│   └── config.yaml             # Unified config template (DO NOT MODIFY)
+│   └── config.yaml             # Unified config template
 ├── for-all/
 │   └── nebula_service.sh       # systemd service (hardened)
 ├── tests/
@@ -41,79 +39,35 @@ nebula-config/
 │   └── workflows/
 │       └── ci.yml              # GitHub Actions CI
 ├── output/                     # Generated configs (gitignore)
-└── plan-fixes.md               # Completed tasks plan
+└── config-nebula.yaml          # Master config (gitignore)
 ```
 
-> `output/`, `__pycache__/` in `.gitignore`. Before use: `bash setup-binaries.sh`
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `for-all/nebula`, `for-all/nebula-cert` are in `.gitignore`.
+> Before use: `bash setup-binaries.sh`
 
 ## Configuration Format
 
-```yaml
-net-name: x-net
-
-# Relay servers for NAT hosts
-relay_servers:
-  - 192.168.10.101
-
-# Inline CA PEM (optional)
-ca_pem: ""
-
-# Key-based signing public address (optional)
-in_pub: ""
-
-# External CA key (optional). If set, CA generation is skipped.
-ca_key_path: ""
-
-lighthouse:
-  light-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.101/24
-      ipv6: fd00:1234:5678:a::101/64
-    port: '4242'
-    public_ip: 138.100.15.25
-    am_relay: true
-    type: LH
-
-hosts:
-  NL-H:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.100/24
-      ipv6: fd00:1234:5678:a::100/64
-    public_ip: 31.58.33.31
-    port: '4242'
-    type: HOST
-    # ssh_target: user@1.2.3.4:/etc/nebula
-
-  laptop-1:
-    groups: home,ssh,admins
-    nebula_ip:
-      ipv4: 192.168.10.103/24
-      ipv6: fd00:1234:5678:a::103/64
-    port: '0'  # NAT host, uses relay
-    type: HOST
-```
-
-### Fields
+See `config-nebula.yaml` (not in repo) — contains `net-name`, `relay_servers`, `lighthouse` and `hosts` sections with fields:
 
 | Field | Description |
 |-------|-------------|
 | `net-name` | Network name for CA |
 | `relay_servers` | Relay server IPs |
-| `ca_pem` | Inline CA PEM |
-| `in_pub` | Key-based signing |
-| `ca_key_path` | Path to external CA key |
+| `ca_pem` | Inline CA PEM (optional) |
+| `in_pub` | Key-based signing (optional) |
+| `ca_key_path` | Path to external CA key (optional) |
 | `groups` | Access groups (comma-separated) |
-| `nebula_ip` | Internal IP + CIDR |
+| `nebula_ip` | Internal IP + CIDR (ipv4/ipv6) |
 | `port` | `4242` = public, `0` = NAT |
-| `public_ip` | Public IP |
-| `am_relay` | Relay lighthouse |
+| `public_ip` | Public IP (for public nodes) |
+| `am_relay` | Relay lighthouse (lighthouse only) |
 | `ssh_target` | `user@host:/etc/nebula` for `--push` |
 
 ### Relay Architecture
 
-NAT hosts (`port: 0`) → `use_relays: true` + relay section. Relay lighthouse → `am_relay: true` + `use_relays: false`. Public hosts → `use_relays: false`.
+NAT hosts (`port: 0`) → `use_relays: true` + `relays:` section.
+Relay lighthouse → `am_relay: true` + `use_relays: false`.
+Public hosts → `use_relays: false`.
 
 ## Usage
 
@@ -136,7 +90,6 @@ python3 generate_configs.py --light light-1
 ### Deploy to Remote Servers
 
 ```bash
-# Nodes with ssh_target in config will be deployed automatically
 python3 generate_configs.py --push
 ```
 
@@ -153,17 +106,16 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 ### Tests
 
 ```bash
-# Run all tests
 pytest tests/test_config.py -v
-
-# 6 test classes, 23 tests:
-# - TestNebulaIPValidation (5 tests): IPv4/IPv6 CIDR
-# - TestHostConfigValidation (6 tests): port, public_ip, nebula_ip
-# - TestLighthouseConfigValidation (2 tests): am_relay without public_ip
-# - TestNebulaConfigValidation (4 tests): valid config, empty net-name, duplicate relays
-# - TestValidateConfigSafe (3 tests): safe validation
-# - TestRealConfigValidation (2 tests): real config, relay for NAT
 ```
+
+6 test classes, 23 tests:
+- `TestNebulaIPValidation` (5): IPv4/IPv6 CIDR
+- `TestHostConfigValidation` (6): port, public_ip, nebula_ip
+- `TestLighthouseConfigValidation` (2): am_relay without public_ip
+- `TestNebulaConfigValidation` (4): valid config, empty net-name, duplicate relays
+- `TestValidateConfigSafe` (3): safe validation
+- `TestRealConfigValidation` (2): real config, relay for NAT
 
 ### Generate CA
 
@@ -179,18 +131,12 @@ output/
 ├── ca/
 │   ├── ca.crt
 │   └── ca.key
-├── server-1/
+├── <node-name>/
 │   ├── config.yaml
-│   ├── server-1.crt
-│   ├── server-1.key
+│   ├── <cert-name>.crt
+│   ├── <cert-name>.key
 │   └── ca.crt
-└── light-1/
-    ├── config.yaml
-    ├── light-1.crt
-    └── light-1.key
 ```
-
-Binaries are no longer copied to output. For systemd use `for-all/nebula_service.sh`.
 
 ## Deployment
 
@@ -203,16 +149,15 @@ python3 generate_configs.py --push
 ### Manual
 
 ```bash
-cd output/server-1
-scp -r * user@1.2.3.4:/etc/nebula/
-ssh user@1.2.3.4 "systemctl restart nebula"
+cd output/<node-name>
+scp -r * user@remote-host:/etc/nebula/
+ssh user@remote-host "systemctl restart nebula"
 ```
 
 ### systemd Service (hardened)
 
 ```bash
-# Copy to target server
-sudo cp nebula_service.sh /etc/systemd/system/nebula.service
+sudo cp for-all/nebula_service.sh /etc/systemd/system/nebula.service
 sudo systemctl daemon-reload
 sudo systemctl enable nebula
 sudo systemctl start nebula
@@ -246,7 +191,3 @@ GitHub Actions: `ruff check` + `ruff format --check` + `pytest` on every push/PR
 ## License
 
 This project is provided "as is" for managing Nebula VPN configurations.
-
-## Plan
-
-See [plan-fixes.md](plan-fixes.md) — all tasks completed.

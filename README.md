@@ -1,4 +1,4 @@
-# Nebula Config Generator
+# Nebula VPN Config Generator
 
 Генератор конфигураций для сети [Nebula VPN](https://github.com/slackhq/nebula). Создаёт конфиги, сертификаты и деплоит на сервера из единого master-конфига.
 
@@ -14,7 +14,6 @@
 - **Оффлайн CA** — `ca_key_path` для внешнего ключа
 - **Харденинг systemd** — небло privileges, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest на каждый пуш
-- **Безопасность** — `ca_key_path` для оффлайн CA
 
 ## Требования
 
@@ -26,13 +25,12 @@
 
 ```
 nebula-config/
-├── config-nebula.yaml          # Мастер-файл (узлы, CA, relay)
 ├── generate_configs.py         # Основной генератор (+ --push)
 ├── validators.py               # Pydantic-валидация конфига
 ├── nebula_inventory.py         # Динамический инвентарь Ansible
 ├── setup-binaries.sh           # Загрузка бинарников Nebula
 ├── templates/
-│   └── config.yaml             # Единый шаблон (НЕ ТРОГАТЬ)
+│   └── config.yaml             # Единый шаблон конфига
 ├── for-all/
 │   └── nebula_service.sh       # systemd-сервис (харденён)
 ├── tests/
@@ -41,79 +39,35 @@ nebula-config/
 │   └── workflows/
 │       └── ci.yml              # GitHub Actions CI
 ├── output/                     # Сгенерированные конфиги (gitignore)
-└── plan-fixes.md               # План выполненных задач
+└── config-nebula.yaml          # Мастер-конфиг (gitignore)
 ```
 
-> `output/`, `__pycache__/` в `.gitignore`. Перед использованием: `bash setup-binaries.sh`
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `for-all/nebula`, `for-all/nebula-cert` — в `.gitignore`.
+> Перед использованием: `bash setup-binaries.sh`
 
 ## Формат конфигурации
 
-```yaml
-net-name: x-net
-
-# Relay-серверы для NAT-хостов
-relay_servers:
-  - 192.168.10.101
-
-# Inline CA PEM (необязательно)
-ca_pem: ""
-
-# Key-based signing public address (необязательно)
-in_pub: ""
-
-# Внешний CA-ключ (необязательно). Если задан — CA не генерируется.
-ca_key_path: ""
-
-lighthouse:
-  light-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.101/24
-      ipv6: fd00:1234:5678:a::101/64
-    port: '4242'
-    public_ip: 138.100.15.25
-    am_relay: true
-    type: LH
-
-hosts:
-  NL-H:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.100/24
-      ipv6: fd00:1234:5678:a::100/64
-    public_ip: 31.58.33.31
-    port: '4242'
-    type: HOST
-    # ssh_target: user@1.2.3.4:/etc/nebula
-
-  laptop-1:
-    groups: home,ssh,admins
-    nebula_ip:
-      ipv4: 192.168.10.103/24
-      ipv6: fd00:1234:5678:a::103/64
-    port: '0'  # NAT-хост, использует relay
-    type: HOST
-```
-
-### Поля
+См. `config-nebula.yaml` (не в репозитории) — содержит `net-name`, `relay_servers`, секции `lighthouse` и `hosts` с полями:
 
 | Поле | Описание |
 |------|----------|
 | `net-name` | Имя сети для CA |
 | `relay_servers` | IP relay-серверов |
-| `ca_pem` | Inline CA PEM |
-| `in_pub` | Key-based signing |
-| `ca_key_path` | Путь к внешнему CA-ключу |
-| `groups` | Группы доступа (comma-separated) |
-| `nebula_ip` | Внутренний IP + CIDR |
+| `ca_pem` | Inline CA PEM (необязательно) |
+| `in_pub` | Key-based signing (необязательно) |
+| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
+| `groups` | Группы доступа (через запятую) |
+| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
 | `port` | `4242` = публичный, `0` = NAT |
-| `public_ip` | Публичный IP |
-| `am_relay` | Relay-лайтхаус |
+| `public_ip` | Публичный IP (для публичных узлов) |
+| `am_relay` | Relay-лайтхаус (только для lighthouse) |
 | `ssh_target` | `user@host:/etc/nebula` для `--push` |
 
 ### Relay-архитектура
 
-NAT-хосты (`port: 0`) → `use_relays: true` + relay-секция. Relay-лайтхаус → `am_relay: true` + `use_relays: false`. Публичные хосты → `use_relays: false`.
+NAT-хосты (`port: 0`) → `use_relays: true` + `relays:` секция.
+Relay-лайтхаус → `am_relay: true` + `use_relays: false`.
+Публичные хосты → `use_relays: false`.
 
 ## Использование
 
@@ -136,7 +90,6 @@ python3 generate_configs.py --light light-1
 ### Деплой на удалённые сервера
 
 ```bash
-# Узлы с ssh_target в конфиге будут развернуты автоматически
 python3 generate_configs.py --push
 ```
 
@@ -153,17 +106,16 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 ### Тесты
 
 ```bash
-# Запуск всех тестов
 pytest tests/test_config.py -v
-
-# 6 классов тестов, 23 теста:
-# - TestNebulaIPValidation (5 тестов): IPv4/IPv6 CIDR
-# - TestHostConfigValidation (6 тестов): порт, public_ip, nebula_ip
-# - TestLighthouseConfigValidation (2 теста): am_relay без public_ip
-# - TestNebulaConfigValidation (4 теста): валидный конфиг, пустой net-name, дубликаты relay
-# - TestValidateConfigSafe (3 теста): safe валидация
-# - TestRealConfigValidation (2 теста): реальный конфиг, relay для NAT
 ```
+
+6 классов тестов, 23 теста:
+- `TestNebulaIPValidation` (5): IPv4/IPv6 CIDR
+- `TestHostConfigValidation` (6): порт, public_ip, nebula_ip
+- `TestLighthouseConfigValidation` (2): am_relay без public_ip
+- `TestNebulaConfigValidation` (4): валидный конфиг, пустой net-name, дубликаты relay
+- `TestValidateConfigSafe` (3): safe валидация
+- `TestRealConfigValidation` (2): реальный конфиг, relay для NAT
 
 ### Генерация CA
 
@@ -179,18 +131,12 @@ output/
 ├── ca/
 │   ├── ca.crt
 │   └── ca.key
-├── server-1/
+├── <node-name>/
 │   ├── config.yaml
-│   ├── server-1.crt
-│   ├── server-1.key
+│   ├── <cert-name>.crt
+│   ├── <cert-name>.key
 │   └── ca.crt
-└── light-1/
-    ├── config.yaml
-    ├── light-1.crt
-    └── light-1.key
 ```
-
-Бинарники больше не копируются в output. Для systemd используйте `for-all/nebula_service.sh`.
 
 ## Развертывание
 
@@ -203,16 +149,15 @@ python3 generate_configs.py --push
 ### Ручное
 
 ```bash
-cd output/server-1
-scp -r * user@1.2.3.4:/etc/nebula/
-ssh user@1.2.3.4 "systemctl restart nebula"
+cd output/<node-name>
+scp -r * user@remote-host:/etc/nebula/
+ssh user@remote-host "systemctl restart nebula"
 ```
 
 ### systemd-сервис (харденён)
 
 ```bash
-# Скопировать на целевой сервер
-sudo cp nebula_service.sh /etc/systemd/system/nebula.service
+sudo cp for-all/nebula_service.sh /etc/systemd/system/nebula.service
 sudo systemctl daemon-reload
 sudo systemctl enable nebula
 sudo systemctl start nebula
@@ -246,7 +191,3 @@ GitHub Actions: `ruff check` + `ruff format --check` + `pytest` на кажды�
 ## Лицензия
 
 Этот проект предоставляется "как есть" для управления конфигурациями Nebula VPN.
-
-## План работ
-
-См. [plan-fixes.md](plan-fixes.md) — все задачи выполнены.
