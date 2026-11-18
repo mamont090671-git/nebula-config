@@ -15,7 +15,7 @@ in_pub: ""
 ca_key_path: ""
 
 lighthouse:
-  RU:
+  light-1:
     groups: home
     nebula_ip:
       ipv4: 192.168.10.101/24
@@ -26,16 +26,25 @@ lighthouse:
     type: LH
 
 hosts:
-  LA-H:
+  NL-H:
     groups: home
     nebula_ip:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
-    public_ip: 31.57.105.170
+    public_ip: 31.58.33.31
     port: '4242'
     type: HOST
     # ssh_target: user@remote-host:/etc/nebula (optional)
-  Gpd4:
+  RU:
+    groups: home
+    nebula_ip:
+      ipv4: 192.168.10.104/24
+      ipv6: fd00:1234:5678:a::104/64
+    port: '4242'
+    public_ip: 158.156.139.25
+    type: HOST
+    # ssh_target: user@remote-host:/etc/nebula (optional)
+  gpd:
     groups: home,ssh,admins
     nebula_ip:
       ipv4: 192.168.10.102/24
@@ -43,7 +52,7 @@ hosts:
     port: '0'
     type: HOST
     # ssh_target: user@remote-host:/etc/nebula (optional)
-  ASUS:
+  laptop-1:
     groups: home,ssh,admins
     nebula_ip:
       ipv4: 192.168.10.103/24
@@ -51,16 +60,7 @@ hosts:
     port: '0'
     type: HOST
     # ssh_target: user@remote-host:/etc/nebula (optional)
-  Timocha:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.104/24
-      ipv6: fd00:1234:5678:a::104/64
-    port: '0'
-    public_ip: 158.156.139.25
-    type: HOST
-    # ssh_target: user@remote-host:/etc/nebula (optional)
-  Opi:
+  opi:
     groups: admins,ssh,home
     nebula_ip:
       ipv4: 192.168.10.105/24
@@ -68,37 +68,3 @@ hosts:
     port: '0'
     type: HOST
     # ssh_target: user@remote-host:/etc/nebula (optional)
-  Tel:
-    groups: admins,ssh,home
-    nebula_ip:
-      ipv4: 192.168.10.106/24
-      ipv6: fd00:1234:5678:a::106/64
-    port: '0'
-    type: HOST
-    # ssh_target: user@remote-host:/etc/nebula (optional)
-  NL-V:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.107/24
-      ipv6: fd00:1234:5678:a::107/64
-    public_ip: 89.124.119.181
-    port: '4242'
-    type: HOST
-    # ssh_target: user@remote-host:/etc/nebula (optional)
-  FL-H:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.108/24
-      ipv6: fd00:1234:5678:a::108/64
-    public_ip: 13.140.85.227
-    port: '4242'
-    type: HOST
-    # ssh_target: user@remote-host:/etc/nebula (optional)
-  Gpd5:
-    groups: home,ssh,admins
-    nebula_ip:
-      ipv4: 192.168.10.111/24
-      ipv6: fd00:1234:5678:a::111/64
-    port: '0'
-    type: HOST
-    # ssh_target: user@remote-host:/etc/nebula (optional) 89.124.119.181
