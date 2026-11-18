@@ -15,8 +15,9 @@ ca_key_path
 # CA сертификаты и ключи
 output/ca/
 
-# Binaries and for-all
+# Binaries и for-all (кроме сервисного скрипта)
 for-all/
+!for-all/nebula_service.sh
 
 # Environment
 .env
