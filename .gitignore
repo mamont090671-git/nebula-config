@@ -15,9 +15,8 @@ ca_key_path
 # CA сертификаты и ключи
 output/ca/
 
-# Binaries
-for-all/nebula
-for-all/nebula-cert
+# Binaries and for-all
+for-all/
 
 # Environment
 .env
