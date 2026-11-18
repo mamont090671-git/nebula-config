@@ -1,209 +1,154 @@
 #!/usr/bin/env python3
 """
-Pydantic V2 валидатор для config-nebula.yaml.
-
-Проверяет:
-- Обязательные поля (net-name, lighthouse, hosts)
-- Валидные IP/CIDR в nebula_ip
-- Диапазон порта 0-65535
-- am_relay только для lighthouse
+Валидатор config-nebula.yaml. Без pydantic — только stdlib.
 """
 
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from typing import List, Optional
+from dataclasses import dataclass, field
 from ipaddress import IPv4Network, IPv6Network, IPv4Address
 
 
-class NebulaIP(BaseModel):
-    """Внутренний IP узла"""
-    ipv4: Optional[str] = None
-    ipv6: Optional[str] = None
+@dataclass
+class NebulaIP:
+    """Внутренний IP узла."""
+    ipv4: str | None = None
+    ipv6: str | None = None
 
-    @field_validator('ipv4')
-    @classmethod
-    def validate_ipv4(cls, v):
-        if v:
+    def __post_init__(self):
+        if self.ipv4:
             try:
-                IPv4Network(v, strict=False)
+                IPv4Network(self.ipv4, strict=False)
             except ValueError:
-                raise ValueError(f"Невалидный IPv4 CIDR: {v}. Формат: 192.168.10.10/24")
-        return v
-
-    @field_validator('ipv6')
-    @classmethod
-    def validate_ipv6(cls, v):
-        if v:
+                raise ValueError(f"Невалидный IPv4 CIDR: {self.ipv4}. Формат: 192.168.10.10/24")
+        if self.ipv6:
             try:
-                IPv6Network(v, strict=False)
+                IPv6Network(self.ipv6, strict=False)
             except ValueError:
-                raise ValueError(f"Невалидный IPv6 CIDR: {v}. Формат: fd00:1234:5678:a::101/64")
-        return v
+                raise ValueError(f"Невалидный IPv6 CIDR: {self.ipv6}. Формат: fd00:1234:5678:a::101/64")
 
 
-class LighthouseConfig(BaseModel):
-    """Конфигурация маяка"""
+@dataclass
+class HostConfig:
+    """Конфигурация узла."""
+    groups: str
+    nebula_ip: NebulaIP
+    port: str = "4242"
+    public_ip: str | None = None
+    name: str | None = None
+
+    def __post_init__(self):
+        try:
+            p = int(self.port)
+        except ValueError:
+            raise ValueError(f"Порт должен быть числом: {self.port}")
+        if p < 0 or p > 65535:
+            raise ValueError(f"Порт должен быть 0-65535, получено: {p}")
+        if self.public_ip:
+            try:
+                IPv4Address(self.public_ip)
+            except ValueError:
+                raise ValueError(f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4")
+
+
+@dataclass
+class LighthouseConfig:
+    """Конфигурация маяка."""
     groups: str
     nebula_ip: NebulaIP
     port: str
-    public_ip: Optional[str] = None
+    public_ip: str | None = None
     am_relay: bool = False
 
-    @field_validator('port')
-    @classmethod
-    def validate_port(cls, v):
+    def __post_init__(self):
         try:
-            port = int(v)
-            if port < 0 or port > 65535:
-                raise ValueError(f"Порт должен быть 0-65535, получено: {port}")
+            p = int(self.port)
         except ValueError:
-            raise ValueError(f"Порт должен быть числом: {v}")
-        return v
-
-    @field_validator('public_ip')
-    @classmethod
-    def validate_public_ip(cls, v):
-        if v:
+            raise ValueError(f"Порт должен быть числом: {self.port}")
+        if p < 0 or p > 65535:
+            raise ValueError(f"Порт должен быть 0-65535, получено: {p}")
+        if self.public_ip:
             try:
-                IPv4Address(v)
+                IPv4Address(self.public_ip)
             except ValueError:
-                raise ValueError(f"Невалидный публичный IP: {v}. Формат: 1.2.3.4")
-        return v
-
-    @model_validator(mode='after')
-    def validate_am_relay(self):
+                raise ValueError(f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4")
         if self.am_relay and not self.public_ip:
             raise ValueError("am_relay: true требует public_ip")
-        return self
 
 
-class HostConfig(BaseModel):
-    """Конфигурация узла"""
-    groups: str
-    nebula_ip: NebulaIP
-    public_ip: Optional[str] = None
-    port: str = "4242"
-    name: Optional[str] = None
-
-    @field_validator('port')
-    @classmethod
-    def validate_port(cls, v):
-        try:
-            port = int(v)
-        except ValueError:
-            raise ValueError(f"Порт должен быть числом: {v}")
-        if port < 0 or port > 65535:
-            raise ValueError(f"Порт должен быть 0-65535, получено: {port}")
-        return v
-
-    @field_validator('public_ip')
-    @classmethod
-    def validate_public_ip(cls, v):
-        if v:
-            try:
-                IPv4Address(v)
-            except ValueError:
-                raise ValueError(f"Невалидный публичный IP: {v}. Формат: 1.2.3.4")
-        return v
-
-
-class NebulaConfig(BaseModel):
-    """Мастер-конфигурация Nebula"""
-    model_config = ConfigDict(populate_by_name=True)
-    net_name: str = Field(..., alias='net-name')
-    relay_servers: List[str] = []
+@dataclass
+class NebulaConfig:
+    """Мастер-конфигурация Nebula."""
+    net_name: str
+    relay_servers: list = field(default_factory=list)
     ca_pem: str = ""
     in_pub: str = ""
     ca_key_path: str = ""
-    lighthouse: dict = {}
-    hosts: dict = {}
+    lighthouse: dict = field(default_factory=dict)
+    hosts: dict = field(default_factory=dict)
 
-    @field_validator('net_name')
-    @classmethod
-    def validate_net_name(cls, v):
-        if not v.strip():
+    def __post_init__(self):
+        if not self.net_name.strip():
             raise ValueError("net-name не может быть пустым")
-        return v
-
-    @field_validator('ca_pem')
-    @classmethod
-    def validate_ca_pem(cls, v):
-        return v.strip() if v else ""
-
-    @field_validator('in_pub')
-    @classmethod
-    def validate_in_pub(cls, v):
-        return v.strip() if v else ""
-
-    @field_validator('ca_key_path')
-    @classmethod
-    def validate_ca_key_path(cls, v):
-        return v.strip() if v else ""
-
-    @model_validator(mode='after')
-    def validate_lighthouse_hosts(self):
-        for node_type, nodes in [('lighthouse', self.lighthouse), ('host', self.hosts)]:
+        self.ca_pem = self.ca_pem.strip() if self.ca_pem else ""
+        self.in_pub = self.in_pub.strip() if self.in_pub else ""
+        self.ca_key_path = self.ca_key_path.strip() if self.ca_key_path else ""
+        # nebula_ip обязателен
+        for label, nodes in [('lighthouse', self.lighthouse), ('host', self.hosts)]:
             for name, data in nodes.items():
                 if isinstance(data, dict):
-                    nebula_ip = data.get('nebula_ip', {})
-                    if not nebula_ip.get('ipv4') and not nebula_ip.get('ipv6'):
-                        raise ValueError(
-                            f"{node_type} '{name}': обязано иметь nebula_ip.ipv4 или nebula_ip.ipv6"
-                        )
-        return self
-
-    @model_validator(mode='after')
-    def validate_relay_servers(self):
+                    nip = data.get('nebula_ip', {})
+                    if not nip.get('ipv4') and not nip.get('ipv6'):
+                        raise ValueError(f"{label} '{name}': обязано иметь nebula_ip.ipv4 или nebula_ip.ipv6")
+        # дубликаты relay
         seen = set()
         for ip in self.relay_servers:
             if ip in seen:
                 raise ValueError(f"Дублирующийся relay_server: {ip}")
             seen.add(ip)
-        return self
 
 
 def validate_config(config_dict: dict) -> NebulaConfig:
-    """
-    Валидирует конфиг и возвращает Pydantic модель.
-    
-    Args:
-        config_dict: словарь из config-nebula.yaml
-        
-    Returns:
-        NebulaConfig валидированный
-        
-    Raises:
-        pydantic.ValidationError: если конфиг невалидный
-    """
+    """Валидирует конфиг и возвращает NebulaConfig."""
     # Валидируем lighthouse
     for lh_name, lh_data in config_dict.get('lighthouse', {}).items():
         if isinstance(lh_data, dict):
-            try:
-                LighthouseConfig(**lh_data)
-            except Exception as e:
-                raise ValueError(f"Ошибка валидации lighthouse '{lh_name}': {e}")
+            lighthouse = LighthouseConfig(
+                groups=lh_data.get('groups', ''),
+                nebula_ip=NebulaIP(
+                    ipv4=lh_data.get('nebula_ip', {}).get('ipv4'),
+                    ipv6=lh_data.get('nebula_ip', {}).get('ipv6')
+                ),
+                port=lh_data.get('port', '4242'),
+                public_ip=lh_data.get('public_ip'),
+                am_relay=lh_data.get('am_relay', False)
+            )
     
     # Валидируем hosts
     for host_name, host_data in config_dict.get('hosts', {}).items():
         if isinstance(host_data, dict):
-            try:
-                HostConfig(**host_data)
-            except Exception as e:
-                raise ValueError(f"Ошибка валидации host '{host_name}': {e}")
+            host = HostConfig(
+                groups=host_data.get('groups', ''),
+                nebula_ip=NebulaIP(
+                    ipv4=host_data.get('nebula_ip', {}).get('ipv4'),
+                    ipv6=host_data.get('nebula_ip', {}).get('ipv6')
+                ),
+                port=host_data.get('port', '4242'),
+                public_ip=host_data.get('public_ip'),
+                name=host_name
+            )
     
-    # Валидируем весь конфиг
-    return NebulaConfig(**config_dict)
+    return NebulaConfig(
+        net_name=config_dict.get('net-name', ''),
+        relay_servers=config_dict.get('relay_servers', []),
+        ca_pem=config_dict.get('ca_pem', ''),
+        in_pub=config_dict.get('in_pub', ''),
+        ca_key_path=config_dict.get('ca_key_path', ''),
+        lighthouse=config_dict.get('lighthouse', {}),
+        hosts=config_dict.get('hosts', {})
+    )
 
 
 def validate_config_safe(config_dict: dict) -> tuple:
-    """
-    Безопасная валидация (не бросает исключение).
-    
-    Args:
-        config_dict: словарь из config-nebula.yaml
-        
-    Returns:
-        (is_valid, error_message)
-    """
+    """Безопасная валидация (не бросает исключение)."""
     try:
         validate_config(config_dict)
         return True, ""
@@ -212,7 +157,6 @@ def validate_config_safe(config_dict: dict) -> tuple:
 
 
 if __name__ == "__main__":
-    # Тестирование
     import yaml
     from pathlib import Path
     
@@ -235,7 +179,7 @@ if __name__ == "__main__":
                 'test-host': {
                     'groups': 'home',
                     'nebula_ip': {'ipv4': '192.168.10.1/24'},
-                    'port': '70000'  # Ошибка: порт > 65535
+                    'port': '70000'
                 }
             }
         },
@@ -244,13 +188,13 @@ if __name__ == "__main__":
             'hosts': {
                 'test-host': {
                     'groups': 'home',
-                    'nebula_ip': {'ipv4': 'invalid-ip'},  # Ошибка: невалидный IP
+                    'nebula_ip': {'ipv4': 'invalid-ip'},
                     'port': '4242'
                 }
             }
         },
         {
-            'net-name': '',  # Ошибка: пустое имя сети
+            'net-name': '',
             'hosts': {
                 'test-host': {
                     'groups': 'home',
