@@ -21,6 +21,50 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 - Nebula v2 binaries: `bash setup-binaries.sh`
 - For deployment: `sshpass` or configured SSH keys
 
+## Example Configuration (config-nebula.yaml)
+
+```yaml
+net-name: x-net
+
+# Relay servers for NAT hosts
+relay_servers:
+  - 192.168.10.101
+
+ca_pem: ""
+in_pub: ""
+ca_key_path: ""
+
+lighthouse:
+  light-1:
+    groups: home
+    nebula_ip:
+      ipv4: 192.168.10.101/24
+      ipv6: fd00:1234:5678:a::101/64
+    port: '4242'
+    public_ip: 138.100.15.25
+    am_relay: true
+
+hosts:
+  # Public host (direct hole-punch)
+  server-1:
+    groups: home
+    nebula_ip:
+      ipv4: 192.168.10.100/24
+      ipv6: fd00:1234:5678:a::100/64
+    port: '4242'
+    public_ip: 31.57.105.170
+    # ssh_target: user@31.57.105.170:/etc/nebula
+
+  # NAT host (port 0 — needs relay)
+  client-1:
+    groups: home,ssh
+    nebula_ip:
+      ipv4: 192.168.10.102/24
+      ipv6: fd00:1234:5678:a::102/64
+    port: '0'
+    # public_ip not needed — port 0
+```
+
 ## Project Structure
 
 ```

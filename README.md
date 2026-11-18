@@ -21,6 +21,50 @@
 - Бинарники Nebula v2: `bash setup-binaries.sh`
 - Для деплоя: `sshpass` или настроенные SSH-ключи
 
+## Пример конфигурации (config-nebula.yaml)
+
+```yaml
+net-name: x-net
+
+# Relay-серверы для NAT-хостов
+relay_servers:
+  - 192.168.10.101
+
+ca_pem: ""
+in_pub: ""
+ca_key_path: ""
+
+lighthouse:
+  light-1:
+    groups: home
+    nebula_ip:
+      ipv4: 192.168.10.101/24
+      ipv6: fd00:1234:5678:a::101/64
+    port: '4242'
+    public_ip: 138.100.15.25
+    am_relay: true
+
+hosts:
+  # Публичный хост (прямо по hole-punch)
+  server-1:
+    groups: home
+    nebula_ip:
+      ipv4: 192.168.10.100/24
+      ipv6: fd00:1234:5678:a::100/64
+    port: '4242'
+    public_ip: 31.57.105.170
+    # ssh_target: user@31.57.105.170:/etc/nebula
+
+  # NAT-хост (port 0 — нужен relay)
+  client-1:
+    groups: home,ssh
+    nebula_ip:
+      ipv4: 192.168.10.102/24
+      ipv6: fd00:1234:5678:a::102/64
+    port: '0'
+    # public_ip не нужен — port 0
+```
+
 ## Структура проекта
 
 ```
