@@ -41,7 +41,7 @@ preferred_ranges:
 
 # Virtual interface
 tun:
-  dev: nebula1
+  dev: {{NETWORK_DEV}}
   tx_queue: 500
   mtu: 1300
   routes:
