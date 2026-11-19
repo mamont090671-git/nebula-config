@@ -141,7 +141,7 @@ def build_inline_ca_block(ca_pem):
     return '\n'.join(lines)
 
 
-def render_config(template, node_name, node_data, node_type, lighthouses, relay_servers=None, ca_pem=None, extra_inbound_rules=None, network_dev='nebula1'):
+def render_config(template, node_name, node_data, node_type, lighthouses, relay_servers=None, ca_pem=None, extra_inbound_rules=None, network_dev='nebula1', network_subnet='192.168.10.0/24'):
     """Единственная функция рендеринга для любого типа узла"""
     
     is_lighthouse = node_type == 'lighthouse'
@@ -183,6 +183,7 @@ def render_config(template, node_name, node_data, node_type, lighthouses, relay_
     result = result.replace('{{LISTEN_PORT}}', listen_port)
     result = result.replace('  # FIREWALL', extra_inbound_rules or '')
     result = result.replace('{{NETWORK_DEV}}', network_dev)
+    result = result.replace('{{NETWORK_SUBNET}}', network_subnet)
     
     # Inline CA замена
     if inline_ca:
@@ -750,6 +751,16 @@ def main():
     ca_key_path = config.get('ca_key_path', '') or None
     network_dev = config.get('dev', 'nebula1')
     
+    # Выводим subnet из первого узла
+    import ipaddress
+    all_nodes = {**config.get('lighthouse', {}), **config.get('hosts', {})}
+    network_subnet = '192.168.10.0/24'  # fallback
+    for name, data in all_nodes.items():
+        nebula_ip = data.get('nebula_ip', {}).get('ipv4', '')
+        if nebula_ip:
+            network_subnet = str(ipaddress.ip_network(nebula_ip, strict=False))
+            break
+    
     # P1.1: Если ca_key_path задан — используем внешний ключ
     external_ca_key = None
     if ca_key_path:
@@ -795,7 +806,7 @@ def main():
         print(f"\nГенерация маяков ({len(light_targets)} шт.)")
         for lh_name in light_targets:
             lh_data = lighthouses[lh_name]
-            rendered = render_config(template, lh_name, lh_data, 'lighthouse', lighthouses, relay_servers, ca_pem, network_dev=network_dev)
+            rendered = render_config(template, lh_name, lh_data, 'lighthouse', lighthouses, relay_servers, ca_pem, network_dev=network_dev, network_subnet=network_subnet)
             write_config(lh_name, rendered, ca_crt_path, generate_cert=auto_generate, in_pub=in_pub)
     
     # Генерация узлов
@@ -803,7 +814,7 @@ def main():
         print(f"\nГенерация узлов ({len(host_targets)} шт.)")
         for host_name in host_targets:
             host_data = hosts[host_name]
-            rendered = render_config(template, host_name, host_data, 'host', lighthouses, relay_servers, ca_pem, network_dev=network_dev)
+            rendered = render_config(template, host_name, host_data, 'host', lighthouses, relay_servers, ca_pem, network_dev=network_dev, network_subnet=network_subnet)
             write_config(host_name, rendered, ca_crt_path, generate_cert=auto_generate, in_pub=in_pub)
     
     # Верификация сгенерированных конфигов
