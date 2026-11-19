@@ -28,10 +28,9 @@ punchy:
   delay: 1s
 
 # Relay servers (populated by generator)
-relays:
-  # RELAYS
-
 relay:
+  relays:
+    # RELAYS
   use_relays: {{USE_RELAYS}}
   am_relay: {{AM_RELAY}}
 
