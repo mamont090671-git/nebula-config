@@ -5,7 +5,7 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 ## Features
 
 - **Configuration generation** from `config-nebula.yaml`
-- **Pydantic validation** — CIDR, port 0-65535, required fields
+- **Config validation** — CIDR, port 0-65535, required fields
 - **Auto-strip CIDR masks** via `ipaddress` stdlib
 - **SSH-based deployment** — `--push` deploy to remote servers
 - **Dynamic Ansible Inventory** — `nebula_inventory.py`
@@ -70,7 +70,7 @@ hosts:
 ```
 nebula-config/
 ├── generate_configs.py         # Main config generator (+ --push)
-├── validators.py               # Pydantic config validation
+├── validators.py         # Config validation
 ├── nebula_inventory.py         # Dynamic Ansible inventory
 ├── setup-binaries.sh           # Nebula binary downloader
 ├── templates/

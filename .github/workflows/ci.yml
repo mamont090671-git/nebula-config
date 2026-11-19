@@ -37,7 +37,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pydantic pytest
+          pip install pytest
 
       - name: Run tests
         run: |

@@ -721,13 +721,13 @@ def main():
     config = load_config()
     print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
     
-    # P2.1: Валидация конфига через Pydantic
+    # P2.1: Валидация конфига
     is_valid, error = validate_config_safe(config)
     if not is_valid:
         print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
         sys.exit(1)
     else:
-        print(f"✓ Конфиг валиден (Pydantic)")
+        print(f"✓ Конфиг валиден")
     
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     

@@ -5,7 +5,7 @@
 ## Возможности
 
 - **Генерация конфигураций** из `config-nebula.yaml`
-- **Pydantic-валидация** — CIDR, порт 0-65535, обязательные поля
+- **Валидация конфига** — CIDR, порт 0-65535, обязательные поля
 - **Автоотсечение CIDR-маски** через `ipaddress` stdlib
 - **Аутентификация через SSH** — `--push` деплой на удалённые сервера
 - **Динамический инвентарь Ansible** — `nebula_inventory.py`
@@ -70,7 +70,7 @@ hosts:
 ```
 nebula-config/
 ├── generate_configs.py         # Основной генератор (+ --push)
-├── validators.py               # Pydantic-валидация конфига
+├── validators.py         # Валидация конфига
 ├── nebula_inventory.py         # Динамический инвентарь Ansible
 ├── setup-binaries.sh           # Загрузка бинарников Nebula
 ├── templates/
