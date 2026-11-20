@@ -45,8 +45,11 @@ tun:
   drop_multicast: true
   tx_queue: 500
   mtu: 1300
-  routes:
-  unsafe_routes:
+
+routes:
+unsafe_routes:
+#  - route: 0.0.0.0/0
+#    via: 192.168.10.110
 
 # Tunnel management
 tunnels:
