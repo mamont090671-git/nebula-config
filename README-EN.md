@@ -76,7 +76,7 @@ nebula-config/
 ├── templates/
 │   └── config.yaml           # Unified config template
 ├── tests/
-│   └── test_config.py        # 23 pytest tests
+│   └── test_config.py        # 31 pytest tests
 ├── .github/
 │   └── workflows/
 │       └── ci.yml            # GitHub Actions CI
@@ -164,9 +164,9 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 pytest tests/test_config.py -v
 ```
 
-7 test classes, 31 tests:
+8 test classes, 31 tests:
 - `TestNebulaIPValidation` (5): IPv4/IPv6 CIDR
-- `TestHostConfigValidation` (6): port, public_ip, nebula_ip
+- `TestHostConfigValidation` (7): port, public_ip, nebula_ip
 - `TestLighthouseConfigValidation` (2): am_relay without public_ip
 - `TestNebulaConfigValidation` (4): valid config, empty net-name, duplicate relays
 - `TestValidateConfigSafe` (3): safe validation

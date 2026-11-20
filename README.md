@@ -80,7 +80,7 @@ nebula-config/
 ├── templates/
 │   └── config.yaml           # Единый шаблон конфига
 ├── tests/
-│   └── test_config.py        # 23 pytest-теста
+│   └── test_config.py        # 31 pytest-тест
 ├── .github/
 │   └── workflows/
 │       └── ci.yml            # GitHub Actions CI
@@ -168,9 +168,9 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 pytest tests/test_config.py -v
 ```
 
-7 классов тестов, 31 тест:
+8 классов тестов, 31 тест:
 - `TestNebulaIPValidation` (5): IPv4/IPv6 CIDR
-- `TestHostConfigValidation` (6): порт, public_ip, nebula_ip
+- `TestHostConfigValidation` (7): порт, public_ip, nebula_ip
 - `TestLighthouseConfigValidation` (2): am_relay без public_ip
 - `TestNebulaConfigValidation` (4): валидный конфиг, пустой net-name, дубликаты relay
 - `TestValidateConfigSafe` (3): safe валидация
