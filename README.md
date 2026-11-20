@@ -96,20 +96,20 @@ nebula-config/
 
 См. `config-nebula.yaml` (не в репозитории) — содержит `net-name`, `relay_servers`, секции `lighthouse` и `hosts` с полями:
 
-|| Поле | Описание |
+| Поле | Описание |
 |------|----------|
-|| `net-name` | Имя сети для CA |
-|| `relay_servers` | Nebula IP relay-серверов |
-|| `ca_pem` | Inline CA PEM (необязательно) |
-|| `in_pub` | Key-based signing (необязательно) |
-|| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
-|| `groups` | Группы доступа (через запятую) |
-|| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
-|| `port` | `4242` = публичный, `0` = NAT |
-|| `public_ip` | Публичный IP (для публичных узлов и lighthouse) |
-|| `am_relay` | Relay-лайтхаус (только для lighthouse) |
-|| `type` | `LH` или `HOST` |
-|| `ssh_target` | `user@host:/etc/nebula` для `--push` |
+| `net-name` | Имя сети для CA |
+| `relay_servers` | Nebula IP relay-серверов |
+| `ca_pem` | Inline CA PEM (необязательно) |
+| `in_pub` | Key-based signing (необязательно) |
+| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
+| `groups` | Группы доступа (через запятую) |
+| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
+| `port` | `4242` = публичный, `0` = NAT |
+| `public_ip` | Публичный IP (для публичных узлов и lighthouse) |
+| `am_relay` | Relay-лайтхаус (только для lighthouse) |
+| `type` | `LH` или `HOST` |
+| `ssh_target` | `user@host:/etc/nebula` для `--push` |
 
 ### Relay-архитектура
 
