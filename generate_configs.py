@@ -75,25 +75,39 @@ def build_static_host_map_for_client(lighthouses):
 
 
 def build_static_host_map_for_lighthouse(lighthouses, current_name):
-    """Строит static_host_map для маяка (только другие маяки с IPv4:Port)"""
+    """Строит static_host_map для маяка (включая самого себя и другие маяки с публичными IP:Port)"""
     lines = ['static_host_map:']
-    has_entries = False
     
+    # Добавляем самого себя
+    current = lighthouses[current_name]
+    ipv4_raw = current.get('nebula_ip', {}).get('ipv4', '')
+    ipv6_raw = current.get('nebula_ip', {}).get('ipv6', '')
+    public_ip = current.get('public_ip', '')
+    port = current.get('port', '')
+    
+    if ipv4_raw and public_ip and port:
+        ipv4 = str(ipaddress.ip_interface(ipv4_raw).ip)
+        lines.append(f'  "{ipv4}": ["{public_ip}:{port}"]')
+    if ipv6_raw and public_ip and port:
+        ipv6 = str(ipaddress.ip_interface(ipv6_raw).ip)
+        lines.append(f'  "{ipv6}": ["{public_ip}:{port}"]')
+    
+    # Добавляем другие маяки
     for lh_name, lh_data in lighthouses.items():
         if lh_name != current_name:
-            ipv4 = lh_data.get('nebula_ip', {}).get('ipv4', '').split('/')[0]
-            ipv6 = lh_data.get('nebula_ip', {}).get('ipv6', '').split('/')[0]
+            ipv4_raw = lh_data.get('nebula_ip', {}).get('ipv4', '')
+            ipv6_raw = lh_data.get('nebula_ip', {}).get('ipv6', '')
             public_ip = lh_data.get('public_ip', '')
             port = lh_data.get('port', '')
             
-            if ipv4 and public_ip and port:
+            if ipv4_raw and public_ip and port:
+                ipv4 = str(ipaddress.ip_interface(ipv4_raw).ip)
                 lines.append(f'  "{ipv4}": ["{public_ip}:{port}"]')
-                has_entries = True
-            if ipv6 and public_ip and port:
+            if ipv6_raw and public_ip and port:
+                ipv6 = str(ipaddress.ip_interface(ipv6_raw).ip)
                 lines.append(f'  "{ipv6}": ["{public_ip}:{port}"]')
-                has_entries = True
     
-    return '\n'.join(lines) if has_entries else None
+    return '\n'.join(lines)
 
 
 def build_lighthouse_hosts_for_client(lighthouses):
