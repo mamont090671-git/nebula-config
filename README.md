@@ -18,8 +18,20 @@
 ## Требования
 
 - Python 3.8+
-- Бинарники Nebula v2: `bash setup-binaries.sh`
 - Для деплоя: `sshpass` или настроенные SSH-ключи
+
+### Установка бинарников на целевой машине
+
+Скопируйте `setup-binaries.sh` на ЦЕЛЕВОЙ сервер и выполните:
+
+```bash
+scp setup-binaries.sh user@target:/tmp/
+ssh user@target 'bash /tmp/setup-binaries.sh --dir /etc/nebula'
+```
+
+Скрипт автоматически определит ОС и архитекцию целевой машины и скачает подходящие бинарники.
+
+Поддерживаемые архитектуры: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`.
 
 ## Пример конфигурации (config-nebula.yaml)
 
