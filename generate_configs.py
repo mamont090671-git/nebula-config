@@ -21,6 +21,8 @@ import argparse
 import shutil
 import subprocess
 import ipaddress
+import getpass
+import os
 from pathlib import Path
 from validators import validate_config, validate_config_safe
 
@@ -380,8 +382,16 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
     print(f"    Группы: {groups}")
     print(f"    Команда: {' '.join(cmd)}")
     
+    # Проверяем ca.key — если зашифрован, спрашиваем passphrase
+    env = os.environ.copy()
+    with open(ca_key, 'r') as kf:
+        first_line = kf.readline().strip()
+    if 'ENCRYPTED' in first_line:
+        passphrase = getpass.getpass('  Введите passphrase для CA-ключа: ')
+        env['NEBULA_CA_PASSPHRASE'] = passphrase
+    
     try:
-        result = subprocess.run(cmd, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, env=env, timeout=30)
         if (node_dir / f"{cert_name}.crt").exists() and (node_dir / f"{cert_name}.key").exists():
             print(f"✓ Сертификат создан: {node_dir / cert_name}.crt")
             print(f"  Ключ: {node_dir / cert_name}.key")
