@@ -6,6 +6,12 @@ pki:
   cert: /etc/nebula/{{HOST_NAME}}.crt
   key: /etc/nebula/{{HOST_NAME}}.key
 
+  # Список SHA-256 отпечатков отозванных сертификатов
+  # Заполняется автоматически из config-nebula.yaml: blocklist:
+  # blocklist:
+  #   - "sha256:..."
+  # blocklist:
+
 # Static host map (populated by generator)
 # STATIC_HOST_MAP
 
