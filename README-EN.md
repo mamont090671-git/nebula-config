@@ -39,7 +39,7 @@ lighthouse:
     nebula_ip:
       ipv4: 192.168.10.101/24
       ipv6: fd00:1234:5678:a::101/64
-    port: '4242'
+    port: 4242
     public_ip: 138.100.15.25
     am_relay: true
 
@@ -50,7 +50,7 @@ hosts:
     nebula_ip:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
-    port: '4242'
+    port: 4242
     public_ip: 31.57.105.170
     # ssh_target: user@31.57.105.170:/etc/nebula
 
@@ -60,7 +60,7 @@ hosts:
     nebula_ip:
       ipv4: 192.168.10.102/24
       ipv6: fd00:1234:5678:a::102/64
-    port: '0'
+    port: 0
     # public_ip not needed — port 0
 ```
 
