@@ -18,7 +18,6 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 ## Requirements
 
 - Python 3.8+
-- Nebula v2 binaries: `bash setup-binaries.sh`
 - For deployment: `sshpass` or configured SSH keys
 
 ## Example Configuration (config-nebula.yaml)
@@ -70,13 +69,11 @@ hosts:
 ```
 nebula-config/
 ├── generate_configs.py         # Main config generator (+ --push)
-├── validators.py         # Config validation
+├── validators.py               # Config validation
 ├── nebula_inventory.py         # Dynamic Ansible inventory
-├── setup-binaries.sh           # Nebula binary downloader
+├── nebula_service.sh           # Deploy script (binary + systemd)
 ├── templates/
 │   └── config.yaml             # Unified config template
-├── for-all/
-│   └── nebula_service.sh       # systemd service (hardened)
 ├── tests/
 │   └── test_config.py          # 23 pytest tests
 ├── .github/
@@ -86,8 +83,7 @@ nebula-config/
 └── config-nebula.yaml          # Master config (gitignore)
 ```
 
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `for-all/nebula`, `for-all/nebula-cert` are in `.gitignore`.
-> Before use: `bash setup-binaries.sh`
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem` are in `.gitignore`.
 
 ## Configuration Format
 
@@ -128,7 +124,7 @@ Checks/creates CA → generates configs → creates certificates → verificatio
 ```bash
 python3 generate_configs.py --host server-1
 python3 generate_configs.py --only-hosts --host A B
-python3 generate_configs.py --light light-1
+python3 generate_configs.py --only-lights --light light-1
 ```
 
 ### Deploy to Remote Servers
@@ -137,7 +133,12 @@ python3 generate_configs.py --light light-1
 python3 generate_configs.py --push
 ```
 
-Copies all files from `output/<node>/` to `ssh_target` + `systemctl restart nebula`.
+**Automatically:**
+1. Detects remote architecture via SSH
+2. Downloads Nebula binary
+3. Copies configs + certificates
+4. Creates systemd service
+5. Restarts nebula and shows status
 
 ### Dynamic Ansible Inventory
 
@@ -170,17 +171,15 @@ python3 generate_configs.py --generate-host-certs
 
 ## Output Directory Structure
 
-```
-output/
-├── ca/
-│   ├── ca.crt
-│   └── ca.key
-├── <node-name>/
-│   ├── config.yaml
-│   ├── <cert-name>.crt
-│   ├── <cert-name>.key
-│   └── ca.crt
-```
+Each `output/<node>/` contains:
+
+| File | Description |
+|------|-------------|
+| `config.yaml` | Unified Nebula V2 config (pki, firewall, lighthouse, relay, static_host_map, tun) |
+| `<name>.crt` | Node certificate |
+| `<name>.key` | Private key |
+| `ca.crt` | CA certificate |
+| `nebula_service.sh` | Deploy script (binary + systemd, all to `/etc/nebula/`) |
 
 ## Deployment
 
@@ -195,21 +194,14 @@ python3 generate_configs.py --push
 ```bash
 cd output/<node-name>
 scp -r * user@remote-host:/etc/nebula/
-ssh user@remote-host "systemctl restart nebula"
+ssh user@remote-host "sudo bash /etc/nebula/nebula_service.sh /etc/nebula"
 ```
 
 ### systemd Service (hardened)
 
-```bash
-sudo cp for-all/nebula_service.sh /etc/systemd/system/nebula.service
-sudo systemctl daemon-reload
-sudo systemctl enable nebula
-sudo systemctl start nebula
-```
-
-Service runs as user `nebula` with limited capabilities:
+Service runs with limited capabilities:
 - `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
-- `ProtectSystem=strict`, `ProtectHome=true`, `NoNewPrivileges=true`
+- `ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=true`
 - `ReadWritePaths=/etc/nebula`
 
 ## Verification
@@ -218,7 +210,7 @@ Automatic checks after generation:
 - relay_servers is not empty (with NAT hosts)
 - port 0 hosts have `use_relays: true`
 - relay lighthouse has `am_relay: true`
-- static_host_map is populated
+- static_host_map populated (lighthouse includes itself)
 - IPv6 hosts section contains all lighthouses
 
 ## Security
