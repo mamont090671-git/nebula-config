@@ -175,18 +175,15 @@ python3 generate_configs.py --generate-host-certs
 
 ## Структура output/
 
-```
-output/
-├── ca/
-│   ├── ca.crt
-│   └── ca.key
-├── <node-name>/
-│   ├── config.yaml
-│   ├── <cert-name>.crt
-│   ├── <cert-name>.key
-│   ├── ca.crt
-│   └── nebula_service.sh
-```
+Каждая папка `output/<node>/` содержит:
+
+| Файл | Описание |
+|------|----------|
+| `config.yaml` | Единый Nebula V2 конфиг (pki, firewall, lighthouse, relay, static_host_map, tun) |
+| `<имя>.crt` | Сертификат узла |
+| `<имя>.key` | Приватный ключ узла |
+| `ca.crt` | CA-сертификат |
+| `nebula_service.sh` | Deploy-скрипт (бинарник + systemd, всё в `/etc/nebula/`) |
 
 ## Развертывание
 
@@ -210,18 +207,6 @@ ssh user@remote-host "sudo bash /etc/nebula/nebula_service.sh /etc/nebula"
 - `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
 - `ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=true`
 - `ReadWritePaths=/etc/nebula`
-
-## Структура output/ (сгенерированные файлы)
-
-Каждая папка `output/<node>/` содержит:
-
-| Файл | Описание |
-|------|----------|
-| `config.yaml` | Единый Nebula V2 конфиг (pki, firewall, lighthouse, relay, static_host_map) |
-| `<имя>.crt` | Сертификат узла |
-| `<имя>.key` | Приватный ключ узла |
-| `ca.crt` | CA-сертификат |
-| `nebula_service.sh` | Deploy-скрипт (бинарник + systemd) |
 
 ## Безопасность
 
