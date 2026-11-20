@@ -30,7 +30,7 @@ echo "✓ Последняя версия: $VERSION"
 # 3. Скачиваем и распаковываем
 ARCHIVE="nebula-${VERSION}-${NEBULA_ARCH}.tar.gz"
 echo "Скачивание $ARCHIVE..."
-wget -O /tmp/$ARCHIVE -L --trust-server-names --timeout=300 "https://github.com/slackhq/nebula/releases/download/v${VERSION}/${ARCHIVE}" 2>/tmp/wget.log
+HTTP_PROXY="" HTTPS_PROXY="" http_proxy="" https_proxy="" wget -O /tmp/$ARCHIVE -L --trust-server-names --timeout=300 "https://github.com/slackhq/nebula/releases/download/v${VERSION}/${ARCHIVE}" 2>/tmp/wget.log
 WGET_EXIT=$?
 if [ $WGET_EXIT -ne 0 ]; then
     echo "❌ wget ошибка $WGET_EXIT:"
