@@ -413,15 +413,16 @@ def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True
     if ca_crt_path and not external_ca_key:
         copy_ca_to_node(node_dir, ca_crt_path)
     
-    if generate_cert and ca_crt_path.exists():
+    # Всегда генерируем сертификаты если есть nebula-cert и CA
+    if ca_crt_path and ca_crt_path.exists():
         ca_dir = OUTPUT_DIR / "ca"
         config = load_config()
         node_data = config.get('hosts', {}).get(node_name) or config.get('lighthouse', {}).get(node_name)
         
         if node_data:
             nebula_cert_path = None
-            if (SCRIPT_DIR / "for-all" / "nebula-cert").exists():
-                nebula_cert_path = SCRIPT_DIR / "for-all" / "nebula-cert"
+            if (SCRIPT_DIR / "nebula-cert").exists():
+                nebula_cert_path = SCRIPT_DIR / "nebula-cert"
             else:
                 nebula_cert_path = shutil.which("nebula-cert")
             
