@@ -240,4 +240,4 @@ GitHub Actions: `ruff check` + `ruff format --check` + `pytest` on every push/PR
 
 ## License
 
-This project is provided "as is" for managing Nebula VPN configurations.
+MIT License — see [LICENSE](LICENSE) file.

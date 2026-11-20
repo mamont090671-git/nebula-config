@@ -233,6 +233,6 @@ ssh user@remote-host "sudo bash /etc/nebula/nebula_service.sh /etc/nebula"
 
 GitHub Actions: `ruff check` + `ruff format --check` + `pytest` на каждый push/PR в master/main.
 
-## Лицензия
+## License
 
-Этот проект предоставляется "как есть" для управления конфигурациями Nebula VPN.
+MIT License — see [LICENSE](LICENSE) file.
