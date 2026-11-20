@@ -21,10 +21,10 @@ cp -f "$NODE_DIR"/*.key /etc/nebula/
 echo "✓ Конфиг и сертификаты скопированы"
 
 # 3. Скачиваем nebula если не установлен
-if ! command -v "$NEBULA_HOME/bin/nebula" &>/dev/null; then
+if ! command -v "$NEBULA_HOME/nebula" &>/dev/null; then
     echo "Проверка бинарника nebula..."
-    if command -v "$NEBULA_HOME/bin/nebula" &>/dev/null; then
-        echo "✓ nebula уже установлен: $NEBULA_HOME/bin/nebula"
+    if command -v "$NEBULA_HOME/nebula" &>/dev/null; then
+        echo "✓ nebula уже установлен: $NEBULA_HOME/nebula"
     else
         # Определяем архитектуру
         ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
@@ -64,23 +64,10 @@ if ! command -v "$NEBULA_HOME/bin/nebula" &>/dev/null; then
         fi
     fi
 else
-    echo "✓ nebula уже установлен: $NEBULA_HOME/bin/nebula"
+    echo "✓ nebula уже установлен: $NEBULA_HOME/nebula"
 fi
 
-# 4. Настраиваем sysctl
-echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
-echo "net.ipv6.conf.all.forwarding = 1" >> /etc/sysctl.conf
-sysctl -p 2>/dev/null || true
-echo "✓ IP forwarding настроен"
-
-# 5. Настраиваем firewall (iptables для nebula)
-iptables -N nebula 2>/dev/null || true
-iptables -I INPUT -j nebula 2>/dev/null || true
-iptables -I FORWARD -j nebula 2>/dev/null || true
-iptables -I OUTPUT -j nebula 2>/dev/null || true
-echo "✓ Firewall rules добавлены"
-
-# 6. Создаём systemd service
+# 4. Создаём systemd service
 cat > /etc/systemd/system/nebula.service << 'SERVICE'
 [Unit]
 Description=Nebula VPN
@@ -103,7 +90,7 @@ PrivateTmp=yes
 WantedBy=multi-user.target
 SERVICE
 
-# 7. Включаем и запускаем
+# 5. Включаем и запускаем
 systemctl daemon-reload
 systemctl enable nebula.service
 systemctl restart nebula.service
