@@ -121,6 +121,14 @@ python3 generate_configs.py
 
 Checks/creates CA → generates configs → creates certificates → verification.
 
+### Certificate Check
+
+```bash
+python3 generate_configs.py --check-certs
+```
+
+Checks all `.crt` in `output/` via `nebula-cert print`, outputs a table with days remaining. Exit 1 if < 30 days.
+
 ### Targeted Generation
 
 ```bash
