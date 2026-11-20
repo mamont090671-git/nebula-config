@@ -351,10 +351,12 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
     node_dir = OUTPUT_DIR / node_name
     node_dir.mkdir(parents=True, exist_ok=True)
     
-    # Удаляем старые файлы (nebula-cert sign ждёт подтверждения если cert существует)
-    for old_file in [node_dir / f"{cert_name}.crt", node_dir / f"{cert_name}.key"]:
-        if old_file.exists():
-            old_file.unlink()
+    cert_file = node_dir / f"{cert_name}.crt"
+    key_file = node_dir / f"{cert_name}.key"
+    
+    # Если сертификат уже есть — не перегенерировать (nebula-cert sign ждёт подтверждения)
+    if cert_file.exists() and key_file.exists():
+        return True, f"{cert_name}.crt"
     
     cmd = [
         str(nebula_cert_path),
