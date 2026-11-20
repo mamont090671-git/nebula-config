@@ -19,19 +19,7 @@
 
 - Python 3.8+
 - Для деплоя: `sshpass` или настроенные SSH-ключи
-
-### Установка бинарников на целевой машине
-
-Скопируйте `setup-binaries.sh` на ЦЕЛЕВОЙ сервер и выполните:
-
-```bash
-scp setup-binaries.sh user@target:/tmp/
-ssh user@target 'bash /tmp/setup-binaries.sh --dir /etc/nebula'
-```
-
-Скрипт автоматически определит ОС и архитекцию целевой машины и скачает подходящие бинарники.
-
-Поддерживаемые архитектуры: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`.
+- SSH-доступ к целевым серверам (указан в `ssh_target`)
 
 ## Пример конфигурации (config-nebula.yaml)
 
@@ -84,10 +72,9 @@ hosts:
 
 ```
 nebula-config/
-├── generate_configs.py         # Основной генератор (+ --push)
-├── validators.py         # Валидация конфига
+├── generate_configs.py         # Генератор + автодеплой (--push)
+├── validators.py               # Валидация конфига
 ├── nebula_inventory.py         # Динамический инвентарь Ansible
-├── setup-binaries.sh           # Загрузка бинарников Nebula
 ├── templates/
 │   └── config.yaml             # Единый шаблон конфига
 ├── for-all/
@@ -101,8 +88,7 @@ nebula-config/
 └── config-nebula.yaml          # Мастер-конфиг (gitignore)
 ```
 
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `for-all/nebula`, `for-all/nebula-cert` — в `.gitignore`.
-> Перед использованием: `bash setup-binaries.sh`
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem` — в `.gitignore`.
 
 ## Формат конфигурации
 
@@ -153,7 +139,12 @@ python3 generate_configs.py --light light-1
 python3 generate_configs.py --push
 ```
 
-Копирует все файлы из `output/<node>/` на `ssh_target` + `systemctl restart nebula`.
+**Автоматически:**
+1. Определяет архитекцию ЦЕЛЕВОЙ машины через SSH
+2. Скачивает подходящий бинарник Nebula на сервер
+3. Создаёт systemd-сервис (харденённый)
+4. Копирует конфиги + сертификаты
+5. Перезапускает nebula и показывает статус
 
 ### Динамический инвентарь Ansible
 

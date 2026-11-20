@@ -532,6 +532,132 @@ def compute_remote_file_hash(ssh_target, remote_path):
     return None
 
 
+def detect_remote_arch(ssh_target):
+    """Определяет архитекцию удалённой машины через SSH."""
+    cmd = f'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "{ssh_target}" "uname -m"'
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+    arch = result.stdout.strip()
+    if arch == 'x86_64':
+        return 'amd64'
+    elif arch in ('aarch64', 'arm64'):
+        return 'arm64'
+    elif arch in ('armv7l', 'armhf'):
+        return 'arm'
+    elif arch == 'riscv64':
+        return 'riscv64'
+    elif arch == 's390x':
+        return 's390x'
+    elif arch == 'ppc64le':
+        return 'ppc64le'
+    return None
+
+
+def get_latest_release():
+    """Получает последний релиз Nebula."""
+    # Пробуем gh → curl
+    for cmd in ['gh release list --repo slackhq/nebula --limit 1 --json tagName --jq .[0].tagName 2>/dev/null',
+                'curl -sL https://api.github.com/repos/slackhq/nebula/releases/latest']:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            import re
+            m = re.search(r'"tag_name":\s*"\K[^"]+', r.stdout)
+            if m:
+                return m.group(0)
+            # gh output
+            lines = r.stdout.strip().split('\n')
+            if lines and 'v' in lines[0]:
+                return lines[0].strip()
+    return None
+
+
+def deploy_binaries(ssh_target, remote_path):
+    """Автоопределяет архитекцию, скачивает и устанавливает бинарники Nebula."""
+    arch = detect_remote_arch(ssh_target)
+    if not arch:
+        return False, "Не удалось определить архитекцию"
+
+    version = get_latest_release()
+    if not version:
+        return False, "Не удалось получить версию релиза"
+
+    # Проверяем есть ли бинарники
+    check_cmd = f'ssh "{ssh_target}" "test -f {remote_path}/nebula && test -f {remote_path}/nebula-cert"'
+    r = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+    if r.returncode == 0:
+        # Проверяем версию
+        ver_cmd = f'ssh "{ssh_target}" "{remote_path}/nebula-cert version 2>&1 || {remote_path}/nebula version 2>&1 || echo unknown"'
+        vr = subprocess.run(ver_cmd, shell=True, capture_output=True, text=True)
+        current = vr.stdout.strip().split()[0] if vr.stdout.strip() else 'unknown'
+        if current == version:
+            return True, f"Небуда {current} уже установлена"
+
+    # Скачиваем и устанавливаем
+    archive = f"nebula-{version}-linux-{arch}.tar.gz"
+    url = f"https://github.com/slackhq/nebula/releases/download/{version}/{archive}"
+    tmp = f"/tmp/nebula-setup-{version}"
+
+    install_cmd = f"""ssh "{ssh_target}" <<'SCRIPT'
+set -e
+mkdir -p {remote_path}
+curl -fSL --retry 3 {url} -o /tmp/{archive}
+tar xzf /tmp/{archive} -C /tmp
+for bin in nebula nebula-cert; do
+    src=$(find /tmp -name "$bin" -type f ! -name "*_test" 2>/dev/null | head -1)
+    if [ -n "$src" ]; then
+        cp -v "$src" {remote_path}/"$bin"
+        chmod +x {remote_path}/"$bin"
+    fi
+done
+rm -rf /tmp/{archive} /tmp/nebula-*
+SCRIPT"""
+    r = subprocess.run(install_cmd, shell=True, capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        return False, f"Установка бинарников FAILED: {r.stderr[:300]}"
+    return True, f"Установлено {version}"
+
+
+def deploy_service(ssh_target, remote_path):
+    """Создаёт и включает systemd-сервис Nebula."""
+    service_content = """[Unit]
+Description=Nebula overlay networking
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+ExecStart={}/nebula -config {}/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+
+# Hardening
+User=root
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+ProtectSystem=strict
+ProtectHome=true
+NoNewPrivileges=true
+ReadWritePaths={}
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+""".format(remote_path, remote_path, remote_path)
+
+    cmd = f"""ssh "{ssh_target}" <<'SCRIPT'
+cat > /etc/systemd/system/nebula.service << 'EOF'
+{service_content}
+EOF
+systemctl daemon-reload
+systemctl enable nebula
+SCRIPT"""
+    r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+    if r.returncode != 0:
+        return False, f"Создание сервиса FAILED: {r.stderr[:300]}"
+    return True, "Сервис создан и включён"
+
+
 def deploy_configs(config, lighthouses, hosts):
     """Деплой конфигов на удалённые сервера через ssh_target с хэш-фильтрацией.
     
@@ -598,7 +724,25 @@ def deploy_configs(config, lighthouses, hosts):
             skipped += 1
             continue
         
-        # Деплоим
+        # Деплоим бинарники (автоопределение архитектуры + скачивание)
+        binaries_result = deploy_binaries(ssh_target, remote_base)
+        if not binaries_result[0]:
+            print(f"  ✗ {node_name}: бинарники FAILED: {binaries_result[1]}")
+            failed += 1
+            continue
+        else:
+            print(f"  📦 {node_name}: {binaries_result[1]}")
+
+        # Создаём systemd сервис
+        service_result = deploy_service(ssh_target, remote_base)
+        if not service_result[0]:
+            print(f"  ✗ {node_name}: сервис FAILED: {service_result[1]}")
+            failed += 1
+            continue
+        else:
+            print(f"  ⚙️  {node_name}: {service_result[1]}")
+
+        # Деплоим конфиги
         files_copied = []
         for item in all_files:
             remote_path = f"{remote_base}/{item.name}"
@@ -609,13 +753,16 @@ def deploy_configs(config, lighthouses, hosts):
                 print(f"  ✓ {node_name}: {item.name} → {remote_host}")
             else:
                 print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
-        
-        # Перезапускаем nebula только если есть изменения
-        if files_copied:
-            ssh_cmd = f'ssh "{remote_host}" "systemctl restart nebula"'
+
+        # Перезапускаем nebula
+        if files_copied or True:  # перезапуск всегда после деплоя
+            ssh_cmd = f'ssh "{remote_host}" "systemctl restart nebula && systemctl status nebula --no-pager | head -15"'
             result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
             if result.returncode == 0:
                 print(f"  ↻ {node_name}: nebula перезапущен на {remote_host}")
+                # Выводим статус сервиса
+                for line in result.stdout.strip().split('\n')[-5:]:
+                    print(f"      {line}")
                 deployed += 1
             else:
                 print(f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED: {result.stderr[:200]}")
