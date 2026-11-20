@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Nebula VPN deploy script
-# Распаковывается в /tmp/nebula-deploy/<node>/
-# Запуск: sudo bash nebula_service.sh <path_to_cert_and_config>
+# Запуск: sudo bash nebula_service.sh <path_to_output_dir>
 set -euo pipefail
 
 NODE_DIR="${1:?Usage: $0 <path_to_output_dir>}"
@@ -20,17 +19,17 @@ cp -f "$NODE_DIR"/*.key /etc/nebula/
 echo "✓ Конфиг и сертификаты скопированы"
 
 # 3. Скачиваем nebula если не установлен
-if ! command -v nebula &>/dev/null || ! dpkg -l | grep -q "^ii.*nebula"; then
+if ! command -v nebula &>/dev/null; then
     echo "Проверка бинарника nebula..."
     if command -v nebula &>/dev/null; then
         echo "✓ nebula уже установлен: $(which nebula)"
     else
         # Определяем архитектуру
-        ARCH=$(dpkg --print-architecture)
+        ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
         case "$ARCH" in
-            amd64)  NEBULA_ARCH="linux-amd64" ;;
-            arm64)  NEBULA_ARCH="linux-arm64" ;;
-            armhf)  NEBULA_ARCH="linux-arm" ;;
+            x86_64|amd64)  NEBULA_ARCH="linux-amd64" ;;
+            aarch64|arm64) NEBULA_ARCH="linux-arm64" ;;
+            armv7l|armhf)  NEBULA_ARCH="linux-arm-7" ;;
             *)
                 echo "❌ Неизвестная архитектура: $ARCH"
                 echo "Ручная установка: https://github.com/slackhq/nebula/releases"
@@ -40,7 +39,7 @@ if ! command -v nebula &>/dev/null || ! dpkg -l | grep -q "^ii.*nebula"; then
 
         # Ищем бинарник в текущей директории
         NEBULA_BIN=""
-        for candidate in nebula "$NODE_DIR/nebula" "$(pwd)/nebula"; do
+        for candidate in "$NODE_DIR/nebula" nebula; do
             if [ -f "$candidate" ] && file "$candidate" | grep -q "ELF"; then
                 NEBULA_BIN="$candidate"
                 echo "✓ Найден бинарник: $candidate"
@@ -50,12 +49,13 @@ if ! command -v nebula &>/dev/null || ! dpkg -l | grep -q "^ii.*nebula"; then
 
         # Скачиваем если не нашли
         if [ -z "$NEBULA_BIN" ]; then
-            NEBULA_LATEST="https://github.com/slackhq/nebula/releases/latest/download/nebula-amd64.deb"
-            echo "Скачивание nebula с GitHub..."
-            curl -fsSL "$NEBULA_LATEST" -o /tmp/nebula.deb
-            apt-get install -y /tmp/nebula.deb
-            rm -f /tmp/nebula.deb
-            echo "✓ nebula установлен из .deb"
+            echo "Скачивание nebula для $ARCH с GitHub..."
+            curl -fsSL "https://github.com/slackhq/nebula/releases/latest/download/nebula-${NEBULA_ARCH}.tar.gz" -o /tmp/nebula.tar.gz
+            tar -xzf /tmp/nebula.tar.gz -C /tmp/
+            cp -f /tmp/nebula/nebula /usr/local/bin/nebula
+            chmod +x /usr/local/bin/nebula
+            rm -f /tmp/nebula.tar.gz /tmp/nebula
+            echo "✓ nebula установлен"
         else
             cp -f "$NEBULA_BIN" /usr/local/bin/nebula
             chmod +x /usr/local/bin/nebula
