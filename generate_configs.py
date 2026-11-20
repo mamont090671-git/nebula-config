@@ -951,8 +951,9 @@ def main():
                 continue
             
             try:
+                cert_path = str(nebula_cert_path) if nebula_cert_path else 'nebula-cert'
                 result = subprocess.run(
-                    [str(nebula_cert_path), 'print', '-in', str(crt_file)],
+                    [cert_path, 'print', '-in', str(crt_file)],
                     capture_output=True, text=True, timeout=10
                 )
                 if result.returncode != 0:
