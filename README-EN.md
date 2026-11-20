@@ -68,22 +68,23 @@ hosts:
 
 ```
 nebula-config/
-├── generate_configs.py         # Main config generator (+ --push)
-├── validators.py               # Config validation
-├── nebula_inventory.py         # Dynamic Ansible inventory
-├── nebula_service.sh           # Deploy script (binary + systemd)
+├── setup.sh                  # Install script (nebula binaries + pip)
+├── generate_configs.py       # Main config generator (+ --push)
+├── validators.py             # Config validation
+├── nebula_inventory.py       # Dynamic Ansible inventory
+├── nebula_service.sh         # Deploy script (binary + systemd)
 ├── templates/
-│   └── config.yaml             # Unified config template
+│   └── config.yaml           # Unified config template
 ├── tests/
-│   └── test_config.py          # 23 pytest tests
+│   └── test_config.py        # 23 pytest tests
 ├── .github/
 │   └── workflows/
-│       └── ci.yml              # GitHub Actions CI
-├── output/                     # Generated configs (gitignore)
-└── config-nebula.yaml          # Master config (gitignore)
+│       └── ci.yml            # GitHub Actions CI
+├── output/                   # Generated configs (gitignore)
+└── config-nebula.yaml        # Master config (gitignore)
 ```
 
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem` are in `.gitignore`.
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `nebula`, `nebula-cert` are in `.gitignore`.
 
 ## Configuration Format
 

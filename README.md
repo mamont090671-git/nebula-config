@@ -72,22 +72,23 @@ hosts:
 
 ```
 nebula-config/
-├── generate_configs.py         # Генератор + автодеплой (--push)
-├── validators.py               # Валидация конфига
-├── nebula_inventory.py         # Динамический инвентарь Ansible
-├── nebula_service.sh           # Deploy-скрипт (бинарник + systemd)
+├── setup.sh                  # Установочный скрипт (nebula binaries + pip)
+├── generate_configs.py       # Генератор + автодеплой (--push)
+├── validators.py             # Валидация конфига
+├── nebula_inventory.py       # Динамический инвентарь Ansible
+├── nebula_service.sh         # Deploy-скрипт (бинарник + systemd)
 ├── templates/
-│   └── config.yaml             # Единый шаблон конфига
+│   └── config.yaml           # Единый шаблон конфига
 ├── tests/
-│   └── test_config.py          # 23 pytest-теста
+│   └── test_config.py        # 23 pytest-теста
 ├── .github/
 │   └── workflows/
-│       └── ci.yml              # GitHub Actions CI
-├── output/                     # Сгенерированные конфиги (gitignore)
-└── config-nebula.yaml          # Мастер-конфиг (gitignore)
+│       └── ci.yml            # GitHub Actions CI
+├── output/                   # Сгенерированные конфиги (gitignore)
+└── config-nebula.yaml        # Мастер-конфиг (gitignore)
 ```
 
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem` — в `.gitignore`.
+> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `nebula`, `nebula-cert` — в `.gitignore`.
 
 ## Формат конфигурации
 
