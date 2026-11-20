@@ -12,7 +12,7 @@
 - **Inline CA** — CA PEM прямо в конфиге
 - **Key-based signing** — поддержка `-in-pub`
 - **Оффлайн CA** — `ca_key_path` для внешнего ключа
-- **Харденинг systemd** — небло privileges, `ProtectSystem=strict`
+- **Харденинг systemd** — NoNewPrivileges, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest на каждый пуш
 
 ## Требования
@@ -75,10 +75,9 @@ nebula-config/
 ├── generate_configs.py         # Генератор + автодеплой (--push)
 ├── validators.py               # Валидация конфига
 ├── nebula_inventory.py         # Динамический инвентарь Ansible
+├── nebula_service.sh           # Deploy-скрипт (бинарник + systemd)
 ├── templates/
 │   └── config.yaml             # Единый шаблон конфига
-├── for-all/
-│   └── nebula_service.sh       # systemd-сервис (харденён)
 ├── tests/
 │   └── test_config.py          # 23 pytest-теста
 ├── .github/
@@ -130,7 +129,7 @@ python3 generate_configs.py
 ```bash
 python3 generate_configs.py --host server-1
 python3 generate_configs.py --only-hosts --host A B
-python3 generate_configs.py --light light-1
+python3 generate_configs.py --only-lighthouses --host A B
 ```
 
 ### Деплой на удалённые сервера
@@ -140,11 +139,10 @@ python3 generate_configs.py --push
 ```
 
 **Автоматически:**
-1. Определяет архитекцию ЦЕЛЕВОЙ машины через SSH
-2. Скачивает подходящий бинарник Nebula на сервер
-3. Создаёт systemd-сервис (харденённый)
-4. Копирует конфиги + сертификаты
-5. Перезапускает nebula и показывает статус
+1. Скачивает подходящий бинарник Nebula (определяет архитектуру через SSH)
+2. Копирует конфиги + сертификаты на сервер
+3. Создаёт systemd-сервис
+4. Перезапускает nebula и показывает статус
 
 ### Динамический инвентарь Ansible
 
@@ -186,7 +184,8 @@ output/
 │   ├── config.yaml
 │   ├── <cert-name>.crt
 │   ├── <cert-name>.key
-│   └── ca.crt
+│   ├── ca.crt
+│   └── nebula_service.sh
 ```
 
 ## Развертывание
@@ -202,31 +201,27 @@ python3 generate_configs.py --push
 ```bash
 cd output/<node-name>
 scp -r * user@remote-host:/etc/nebula/
-ssh user@remote-host "systemctl restart nebula"
+ssh user@remote-host "sudo bash /etc/nebula/nebula_service.sh /etc/nebula"
 ```
 
 ### systemd-сервис (харденён)
 
-```bash
-sudo cp for-all/nebula_service.sh /etc/systemd/system/nebula.service
-sudo systemctl daemon-reload
-sudo systemctl enable nebula
-sudo systemctl start nebula
-```
-
-Сервис запущен от пользователя `nebula` с ограниченным набором capabilities:
+Сервис запущен с ограниченным набором capabilities:
 - `AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE`
-- `ProtectSystem=strict`, `ProtectHome=true`, `NoNewPrivileges=true`
+- `ProtectSystem=strict`, `ProtectHome=yes`, `NoNewPrivileges=true`
 - `ReadWritePaths=/etc/nebula`
 
-## Верификация
+## Структура output/ (сгенерированные файлы)
 
-Автоматическая проверка после генерации:
-- relay_servers не пуст (при NAT-хостах)
-- port 0 хосты имеют `use_relays: true`
-- relay-лайтхаус имеет `am_relay: true`
-- static_host_map заполнен
-- IPv6 hosts секция содержит все лайтхаусы
+Каждая папка `output/<node>/` содержит:
+
+| Файл | Описание |
+|------|----------|
+| `config.yaml` | Единый Nebula V2 конфиг (pki, firewall, lighthouse, relay, static_host_map) |
+| `<имя>.crt` | Сертификат узла |
+| `<имя>.key` | Приватный ключ узла |
+| `ca.crt` | CA-сертификат |
+| `nebula_service.sh` | Deploy-скрипт (бинарник + systemd) |
 
 ## Безопасность
 
