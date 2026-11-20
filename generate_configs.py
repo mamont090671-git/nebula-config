@@ -157,7 +157,7 @@ def build_inline_ca_block(ca_pem):
     return '\n'.join(lines)
 
 
-def render_config(template, node_name, node_data, node_type, lighthouses, relay_servers=None, ca_pem=None, blocklist=None, network_dev='nebula1', network_subnet='192.168.10.0/24'):
+def render_config(template, node_name, node_data, node_type, lighthouses, relay_servers=None, ca_pem=None, blocklist=None, network_dev='nebula1', network_subnet='192.168.10.0/24', extra_inbound_rules=None):
     """Единственная функция рендеринга для любого типа узла"""
     
     is_lighthouse = node_type == 'lighthouse'
