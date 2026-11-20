@@ -19,6 +19,12 @@
 - **Харденинг systemd** — NoNewPrivileges, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest на каждый пуш
 
+## Быстрый старт
+
+```bash
+./setup.sh
+```
+
 ## Требования
 
 - Python 3.8+

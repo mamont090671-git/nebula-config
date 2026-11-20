@@ -19,6 +19,12 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 - **Systemd hardening** — least privilege, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest on every push
 
+## Quick Start
+
+```bash
+./setup.sh
+```
+
 ## Requirements
 
 - Python 3.8+
