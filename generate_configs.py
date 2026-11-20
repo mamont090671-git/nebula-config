@@ -890,6 +890,8 @@ def main():
                         help='Сгенерировать сертификаты для всех узлов')
     parser.add_argument('--push', action='store_true',
                         help='Развернуть сгенерированные конфиги на удалённые сервера через ssh_target')
+    parser.add_argument('--check-certs', action='store_true',
+                        help='Проверить срок действия всех сертификатов в output/ (exit 1 если < 30 дней)')
     parser.add_argument('--cert-path', type=str, default=None,
                         help='Путь к бинарнику nebula-cert (по умолчанию из PATH или for-all/)')
     
@@ -922,6 +924,97 @@ def main():
         ca_dir = OUTPUT_DIR / "ca"
         generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=in_pub)
         sys.exit(0)
+    
+    # Проверка сертификатов
+    if args.check_certs:
+        import glob as glob_module
+        import datetime
+        
+        output_dir = OUTPUT_DIR
+        if not output_dir.exists():
+            print("Ошибка: output/ не существует. Сначала сгенерируйте конфиги.")
+            sys.exit(1)
+        
+        crt_files = list(output_dir.glob('**/*.crt'))
+        if not crt_files:
+            print("Нет .crt файлов в output/")
+            sys.exit(0)
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        warning_threshold = datetime.timedelta(days=30)
+        expired = []
+        expiring_soon = []
+        valid = []
+        
+        for crt_file in sorted(crt_files):
+            if crt_file.parent.name == 'ca':
+                continue
+            
+            try:
+                result = subprocess.run(
+                    [str(nebula_cert_path), 'print', '-in', str(crt_file)],
+                    capture_output=True, text=True, timeout=10
+                )
+                if result.returncode != 0:
+                    expired.append((crt_file.name, 'ошибка чтения'))
+                    continue
+                
+                # Парсим NotAfter из вывода nebula-cert print
+                for line in result.stdout.split('\n'):
+                    if 'Not After' in line or 'notAfter' in line:
+                        date_str = line.split(':')[-1].strip()
+                        # Формат: Oct 29 15:18:25 2026 GMT
+                        try:
+                            expiry = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
+                            expiry = expiry.replace(tzinfo=datetime.timezone.utc)
+                        except ValueError:
+                            try:
+                                expiry = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%SZ')
+                                expiry = expiry.replace(tzinfo=datetime.timezone.utc)
+                            except ValueError:
+                                expired.append((crt_file.name, f'не удалось распарсить: {date_str}'))
+                                break
+                        
+                        days_left = (expiry - now).days
+                        
+                        if expiry < now:
+                            expired.append((crt_file.name, f'{days_left} дн.'))
+                        elif days_left <= 30:
+                            expiring_soon.append((crt_file.name, f'{days_left} дн. ({expiry.date()})'))
+                        else:
+                            valid.append((crt_file.name, f'{days_left} дн.'))
+                        break
+            except subprocess.TimeoutExpired:
+                expired.append((crt_file.name, 'таймаут'))
+            except Exception as e:
+                expired.append((crt_file.name, str(e)))
+        
+        # Таблица
+        print("\n=== Аудит сертификатов ===")
+        print(f"{'Файл':<25} {'Статус':<15} {'Осталось':<20}")
+        print("-" * 60)
+        
+        if valid:
+            print(f"\n✅ Валидные ({len(valid)}):")
+            for name, days in valid:
+                print(f"  {name:<23} {'OK':<13} {days}")
+        
+        if expiring_soon:
+            print(f"\n⚠ Истекают в течение 30 дней ({len(expiring_soon)}):")
+            for name, days in expiring_soon:
+                print(f"  {name:<23} {'WARNING':<13} {days}")
+        
+        if expired:
+            print(f"\n❌ Просроченные ({len(expired)}):")
+            for name, days in expired:
+                print(f"  {name:<23} {'EXPIRED':<13} {days}")
+        
+        if expiring_soon or expired:
+            print(f"\n⚠ ИТОГО: {len(expiring_soon)} истекающих, {len(expired)} просроченных")
+            sys.exit(1)
+        else:
+            print(f"\n✅ ВСЕ сертификаты валидны ({len(valid)} шт.)")
+            sys.exit(0)
     
     # Основная генерация
     print("Генерация конфигураций Nebula VPN")

@@ -250,3 +250,67 @@ class TestRealConfigValidation:
         if nat_hosts:
             relays = config.get('relay_servers', [])
             assert len(relays) > 0, f"NAT-хосты {nat_hosts} требуют relay_servers"
+
+
+class TestBlocklistValidation:
+    """Валидация blocklist — SHA-256 отпечатки."""
+
+    def test_valid_blocklist_sha256(self):
+        """Корректный SHA-256 отпечаток."""
+        config = {
+            'net-name': 'test',
+            'relay_servers': [],
+            'blocklist': ['sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'],
+            'lighthouse': {},
+            'hosts': {}
+        }
+        result = validate_config(config)
+        assert len(result.blocklist) == 1
+
+    def test_blocklist_invalid_format(self):
+        """Некорректный формат отпечатка."""
+        config = {
+            'net-name': 'test',
+            'relay_servers': [],
+            'blocklist': ['invalid-fingerprint'],
+            'lighthouse': {},
+            'hosts': {}
+        }
+        with pytest.raises(ValueError, match='Невалидный отпечаток в blocklist'):
+            validate_config(config)
+
+    def test_blocklist_invalid_hex(self):
+        """Некорректные hex-символы."""
+        config = {
+            'net-name': 'test',
+            'relay_servers': [],
+            'blocklist': ['sha256:gggg1234567890abcdef1234567890abcdef1234567890abcdef1234567890'],
+            'lighthouse': {},
+            'hosts': {}
+        }
+        with pytest.raises(ValueError, match='Невалидный отпечаток в blocklist'):
+            validate_config(config)
+
+    def test_blocklist_wrong_length(self):
+        """Неправильная длина отпечатка (меньше 64)."""
+        config = {
+            'net-name': 'test',
+            'relay_servers': [],
+            'blocklist': ['sha256:abc123'],
+            'lighthouse': {},
+            'hosts': {}
+        }
+        with pytest.raises(ValueError, match='Невалидный отпечаток в blocklist'):
+            validate_config(config)
+
+    def test_empty_blocklist(self):
+        """Пустой blocklist допустим."""
+        config = {
+            'net-name': 'test',
+            'relay_servers': [],
+            'blocklist': [],
+            'lighthouse': {},
+            'hosts': {}
+        }
+        result = validate_config(config)
+        assert result.blocklist == []
