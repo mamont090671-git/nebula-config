@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Nebula VPN deploy script
 # Запуск: sudo bash nebula_service.sh <path_to_output_dir>
+# Всё nebula: /opt/nebula
 set -euo pipefail
 
 NODE_DIR="${1:?Usage: $0 <path_to_output_dir>}"
+NEBULA_HOME="/opt/nebula"
 
 echo "=== Nebula VPN Deploy ==="
 
 # 1. Создаём директорию для nebula
 mkdir -p /etc/nebula
+mkdir -p "$NEBULA_HOME"
 
 # 2. Копируем конфиг и сертификаты
 cp -f "$NODE_DIR/config.yaml" /etc/nebula/config.yaml
@@ -19,10 +22,10 @@ cp -f "$NODE_DIR"/*.key /etc/nebula/
 echo "✓ Конфиг и сертификаты скопированы"
 
 # 3. Скачиваем nebula если не установлен
-if ! command -v nebula &>/dev/null; then
+if ! command -v "$NEBULA_HOME/bin/nebula" &>/dev/null; then
     echo "Проверка бинарника nebula..."
-    if command -v nebula &>/dev/null; then
-        echo "✓ nebula уже установлен: $(which nebula)"
+    if command -v "$NEBULA_HOME/bin/nebula" &>/dev/null; then
+        echo "✓ nebula уже установлен: $NEBULA_HOME/bin/nebula"
     else
         # Определяем архитектуру
         ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
@@ -51,19 +54,18 @@ if ! command -v nebula &>/dev/null; then
         if [ -z "$NEBULA_BIN" ]; then
             echo "Скачивание nebula для $ARCH с GitHub..."
             curl -fsSL "https://github.com/slackhq/nebula/releases/latest/download/nebula-${NEBULA_ARCH}.tar.gz" -o /tmp/nebula.tar.gz
-            tar -xzf /tmp/nebula.tar.gz -C /tmp/
-            cp -f /tmp/nebula/nebula /usr/local/bin/nebula
-            chmod +x /usr/local/bin/nebula
-            rm -f /tmp/nebula.tar.gz /tmp/nebula
-            echo "✓ nebula установлен"
+            tar -xzf /tmp/nebula.tar.gz -C "$NEBULA_HOME/"
+            rm -f /tmp/nebula.tar.gz
+            chmod +x "$NEBULA_HOME/nebula"
+            echo "✓ nebula установлен в $NEBULA_HOME"
         else
-            cp -f "$NEBULA_BIN" /usr/local/bin/nebula
-            chmod +x /usr/local/bin/nebula
-            echo "✓ nebula скопирован в /usr/local/bin/nebula"
+            cp -f "$NEBULA_BIN" "$NEBULA_HOME/nebula"
+            chmod +x "$NEBULA_HOME/nebula"
+            echo "✓ nebula скопирован в $NEBULA_HOME"
         fi
     fi
 else
-    echo "✓ nebula уже установлен"
+    echo "✓ nebula уже установлен: $NEBULA_HOME/bin/nebula"
 fi
 
 # 4. Настраиваем sysctl
@@ -88,7 +90,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/nebula -config /etc/nebula/config.yaml
+ExecStart=/opt/nebula/nebula -config /etc/nebula/config.yaml
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
