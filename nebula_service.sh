@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
 # Nebula VPN deploy script
 # Запуск: sudo bash nebula_service.sh <path_to_output_dir>
-# Всё nebula: /opt/nebula
+# Всё nebula: /etc/nebula/
 set -euo pipefail
 
 NODE_DIR="${1:?Usage: $0 <path_to_output_dir>}"
-NEBULA_HOME="/opt/nebula"
+NEBULA_HOME="/etc/nebula"
 
 echo "=== Nebula VPN Deploy ==="
 
 # 1. Создаём директорию для nebula
 mkdir -p /etc/nebula
-mkdir -p "$NEBULA_HOME"
 
 # 2. Копируем конфиг и сертификаты
 cp -f "$NODE_DIR/config.yaml" /etc/nebula/config.yaml
@@ -90,7 +89,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/opt/nebula/nebula -config /etc/nebula/config.yaml
+ExecStart=/etc/nebula/nebula -config /etc/nebula/config.yaml
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
