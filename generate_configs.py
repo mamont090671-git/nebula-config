@@ -844,7 +844,7 @@ def main():
         if nebula_cert_path:
             nebula_cert_path = Path(nebula_cert_path)
         else:
-            print("Ошибка: nebula-cert не найден. Используйте --cert-path или запустите bash setup-binaries.sh", file=sys.stderr)
+            print("Ошибка: nebula-cert не найден. Используйте --cert-path для указания пути к бинарникам.", file=sys.stderr)
             sys.exit(1)
     
     # Генерация CA
