@@ -316,6 +316,16 @@ def copy_for_all_files(node_dir):
         print(f"  Скопировано: {', '.join(files_copied)}")
 
 
+def copy_deploy_script(node_dir):
+    """Копирует deploy-скрипт из корня проекта в node_dir"""
+    deploy_path = SCRIPT_DIR / "nebula_service.sh"
+    if deploy_path.exists():
+        shutil.copy2(deploy_path, node_dir / "nebula_service.sh")
+        print(f"  Скопировано: nebula_service.sh (deploy)")
+    else:
+        print(f"  ⚠️  deploy-скрипт не найден: {deploy_path}", file=sys.stderr)
+
+
 def copy_ca_to_node(node_dir, ca_crt_path):
     """Копирует CA-сертификат в node_dir"""
     if not ca_crt_path.exists():
@@ -436,6 +446,7 @@ def write_config(node_name, config_content, ca_crt_path=None, generate_cert=True
     print(f"✓ Создано: {output_file}")
     
     copy_for_all_files(node_dir)
+    copy_deploy_script(node_dir)
     
     # P1.1: Не копировать ca.crt в output если используется внешний ключ
     if ca_crt_path and not external_ca_key:
