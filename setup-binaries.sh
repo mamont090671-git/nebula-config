@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Автоустановка бинарников Nebula v2 на любую машину
+# Автоустановка бинарников Nebula v2 на целевую машину
 # Определяет ОС и архитекцию при запуске, скачивает нужный релиз
 # Использование: ./setup-binaries.sh [--dir /путь/куда/установить]
+# По умолчанию: /usr/local/bin (требует root)
+
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TARGET_DIR="${2:-${SCRIPT_DIR}/for-all}"
+TARGET_DIR="${2:-/usr/local/bin}"
 mkdir -p "$TARGET_DIR"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-# Определяем архитектуру
 detect_arch() {
     case "$(uname -m)" in
         x86_64)   echo "amd64" ;;
@@ -24,7 +24,6 @@ detect_arch() {
     esac
 }
 
-# Получаем последний релиз (fallback: gh → curl → wget)
 get_latest() {
     if command -v gh &>/dev/null; then
         gh release list --repo slackhq/nebula --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null
