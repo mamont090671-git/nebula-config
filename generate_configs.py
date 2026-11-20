@@ -837,8 +837,6 @@ def main():
     nebula_cert_path = None
     if args.cert_path:
         nebula_cert_path = Path(args.cert_path)
-    elif (SCRIPT_DIR / "for-all" / "nebula-cert").exists():
-        nebula_cert_path = SCRIPT_DIR / "for-all" / "nebula-cert"
     elif (SCRIPT_DIR / "nebula-cert").exists():
         nebula_cert_path = SCRIPT_DIR / "nebula-cert"
     else:
@@ -846,7 +844,7 @@ def main():
         if nebula_cert_path:
             nebula_cert_path = Path(nebula_cert_path)
         else:
-            print("Ошибка: nebula-cert не найден. Установите --cert-path или положите nebula-cert в for-all/ или в корень проекта.", file=sys.stderr)
+            print("Ошибка: nebula-cert не найден. Установите --cert-path или положите nebula-cert в корень проекта.", file=sys.stderr)
             sys.exit(1)
     
     # Генерация CA
