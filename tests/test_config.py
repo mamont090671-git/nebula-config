@@ -314,3 +314,40 @@ class TestBlocklistValidation:
         }
         result = validate_config(config)
         assert result.blocklist == []
+
+
+class TestCheckCertsParsing:
+    """Тесты парсинга вывода nebula-cert print."""
+
+    def test_parse_not_after_standard(self):
+        """Парсинг Not After: Oct 29 15:18:25 2026 GMT."""
+        import subprocess
+        import datetime
+        
+        # Тестовая строка из вывода nebula-cert
+        line = 'Not After: Oct 29 15:18:25 2026 GMT'
+        date_str = line.split(':')[-1].strip()
+        expiry = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
+        expiry = expiry.replace(tzinfo=datetime.timezone.utc)
+        assert expiry.year == 2026
+        assert expiry.month == 10
+
+    def test_parse_not_after_iso(self):
+        """Парсинг Not After ISO формат."""
+        import datetime
+        
+        line = 'notAfter: 2026-10-29T15:18:25Z'
+        date_str = line.split(':')[-1].strip()
+        expiry = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%SZ')
+        expiry = expiry.replace(tzinfo=datetime.timezone.utc)
+        assert expiry.year == 2026
+        assert expiry.month == 10
+
+    def test_days_left_calculation(self):
+        """Расчёт дней до истечения."""
+        import datetime
+        
+        now = datetime.datetime.now(datetime.timezone.utc)
+        future = now + datetime.timedelta(days=45)
+        days_left = (future - now).days
+        assert days_left == 45

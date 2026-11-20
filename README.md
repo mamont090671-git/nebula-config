@@ -168,13 +168,15 @@ ansible-playbook -i nebula_inventory.py deploy.yml --limit home
 pytest tests/test_config.py -v
 ```
 
-6 классов тестов, 23 теста:
+7 классов тестов, 31 тест:
 - `TestNebulaIPValidation` (5): IPv4/IPv6 CIDR
 - `TestHostConfigValidation` (6): порт, public_ip, nebula_ip
 - `TestLighthouseConfigValidation` (2): am_relay без public_ip
 - `TestNebulaConfigValidation` (4): валидный конфиг, пустой net-name, дубликаты relay
 - `TestValidateConfigSafe` (3): safe валидация
 - `TestRealConfigValidation` (2): реальный конфиг, relay для NAT
+- `TestBlocklistValidation` (5): валидация SHA-256 отпечатков
+- `TestCheckCertsParsing` (3): парсинг nebula-cert print
 
 ### Генерация CA
 
