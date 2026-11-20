@@ -113,7 +113,8 @@ class NebulaConfig:
                 raise ValueError(f"Дублирующийся relay_server: {ip}")
             seen.add(ip)
         # валидация blocklist (SHA-256 отпечатки)
-        for fp in self.blocklist:
+        bl = self.blocklist if self.blocklist else []
+        for fp in bl:
             if not _validate_fingerprint(fp):
                 raise ValueError(f"Невалидный отпечаток в blocklist: {fp}. Формат: sha256:<64 hex chars>")
 
@@ -154,7 +155,7 @@ def validate_config(config_dict: dict) -> NebulaConfig:
         ca_pem=config_dict.get('ca_pem', ''),
         in_pub=config_dict.get('in_pub', ''),
         ca_key_path=config_dict.get('ca_key_path', ''),
-        blocklist=config_dict.get('blocklist', []),
+        blocklist=config_dict.get('blocklist', []) or [],
         lighthouse=config_dict.get('lighthouse', {}),
         hosts=config_dict.get('hosts', {})
     )
