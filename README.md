@@ -24,7 +24,7 @@
 ## Пример конфигурации (config-nebula.yaml)
 
 ```yaml
-net-name: x-net
+net-name: my-net
 
 # Relay-серверы для NAT-хостов
 relay_servers:
@@ -35,14 +35,15 @@ in_pub: ""
 ca_key_path: ""
 
 lighthouse:
-  light-1:
+  lh-1:
     groups: home
     nebula_ip:
       ipv4: 192.168.10.101/24
       ipv6: fd00:1234:5678:a::101/64
     port: '4242'
-    public_ip: 138.100.15.25
+    public_ip: 203.0.113.1
     am_relay: true
+    type: LH
 
 hosts:
   # Публичный хост (прямо по hole-punch)
@@ -52,16 +53,18 @@ hosts:
       ipv4: 192.168.10.100/24
       ipv6: fd00:1234:5678:a::100/64
     port: '4242'
-    public_ip: 31.57.105.170
-    # ssh_target: user@31.57.105.170:/etc/nebula
+    public_ip: 203.0.113.2
+    type: HOST
+    # ssh_target: user@host:/etc/nebula
 
   # NAT-хост (port 0 — нужен relay)
-  client-1:
+  nat-client:
     groups: home,ssh
     nebula_ip:
       ipv4: 192.168.10.102/24
       ipv6: fd00:1234:5678:a::102/64
     port: '0'
+    type: HOST
     # public_ip не нужен — port 0
 ```
 
@@ -93,19 +96,20 @@ nebula-config/
 
 См. `config-nebula.yaml` (не в репозитории) — содержит `net-name`, `relay_servers`, секции `lighthouse` и `hosts` с полями:
 
-| Поле | Описание |
+|| Поле | Описание |
 |------|----------|
-| `net-name` | Имя сети для CA |
-| `relay_servers` | IP relay-серверов |
-| `ca_pem` | Inline CA PEM (необязательно) |
-| `in_pub` | Key-based signing (необязательно) |
-| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
-| `groups` | Группы доступа (через запятую) |
-| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
-| `port` | `4242` = публичный, `0` = NAT |
-| `public_ip` | Публичный IP (для публичных узлов) |
-| `am_relay` | Relay-лайтхаус (только для lighthouse) |
-| `ssh_target` | `user@host:/etc/nebula` для `--push` |
+|| `net-name` | Имя сети для CA |
+|| `relay_servers` | Nebula IP relay-серверов |
+|| `ca_pem` | Inline CA PEM (необязательно) |
+|| `in_pub` | Key-based signing (необязательно) |
+|| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
+|| `groups` | Группы доступа (через запятую) |
+|| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
+|| `port` | `4242` = публичный, `0` = NAT |
+|| `public_ip` | Публичный IP (для публичных узлов и lighthouse) |
+|| `am_relay` | Relay-лайтхаус (только для lighthouse) |
+|| `type` | `LH` или `HOST` |
+|| `ssh_target` | `user@host:/etc/nebula` для `--push` |
 
 ### Relay-архитектура
 
