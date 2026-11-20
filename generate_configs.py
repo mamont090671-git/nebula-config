@@ -316,7 +316,6 @@ def verify_generated_configs(config, lighthouses, hosts, relay_servers):
 def copy_for_all_files(node_dir):
     """Копирует файлы из for-all/ в node_dir"""
     if not FOR_ALL_DIR.exists():
-        print(f"  Внимание: Папка for-all/ не найдена, файлы не копируются")
         return
     
     files_copied = []
