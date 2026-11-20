@@ -41,10 +41,12 @@ preferred_ranges:
 # Virtual interface
 tun:
   dev: {{NETWORK_DEV}}
+  drop_local_broadcast: true
+  drop_multicast: true
   tx_queue: 500
   mtu: 1300
-  routes: []
-  unsafe_routes: []
+  routes:
+  unsafe_routes:
 
 # Tunnel management
 tunnels:
