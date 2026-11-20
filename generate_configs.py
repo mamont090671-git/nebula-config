@@ -327,6 +327,18 @@ def copy_ca_to_node(node_dir, ca_crt_path):
     print(f"  CA: {dest.name} скопирован")
 
 
+# Кеш passphrase — спрашиваем один раз за сессию
+_passphrase_cache = None
+
+def get_ca_passphrase():
+    """Спрашиваем passphrase один раз и кешируем."""
+    global _passphrase_cache
+    if _passphrase_cache is not None:
+        return _passphrase_cache
+    _passphrase_cache = getpass.getpass('Введите passphrase для CA-ключа: ')
+    return _passphrase_cache
+
+
 def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in_pub=None, external_ca_key=None, ca_crt_path=None):
     """Генерация сертификата для узла/маяка"""
     ipv4 = node_data.get('nebula_ip', {}).get('ipv4', '')
@@ -387,8 +399,7 @@ def generate_node_certificate(node_name, node_data, ca_dir, nebula_cert_path, in
     with open(ca_key, 'r') as kf:
         first_line = kf.readline().strip()
     if 'ENCRYPTED' in first_line:
-        passphrase = getpass.getpass('  Введите passphrase для CA-ключа: ')
-        env['NEBULA_CA_PASSPHRASE'] = passphrase
+        env['NEBULA_CA_PASSPHRASE'] = get_ca_passphrase()
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, env=env, timeout=30)
