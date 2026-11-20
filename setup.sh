@@ -30,7 +30,7 @@ echo "✓ Последняя версия: $VERSION"
 # 3. Скачиваем и распаковываем
 ARCHIVE="nebula-${VERSION}-${NEBULA_ARCH}.tar.gz"
 echo "Скачивание $ARCHIVE..."
-wget -qO /tmp/$ARCHIVE -L "https://github.com/slackhq/nebula/releases/download/v${VERSION}/${ARCHIVE}"
+wget -qO /tmp/$ARCHIVE -L --trust-server-names "https://github.com/slackhq/nebula/releases/download/v${VERSION}/${ARCHIVE}"
 tar xzf /tmp/$ARCHIVE -C "$SCRIPT_DIR/"
 rm -f /tmp/$ARCHIVE
 
