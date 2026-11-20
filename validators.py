@@ -5,6 +5,13 @@
 
 from dataclasses import dataclass, field
 from ipaddress import IPv4Network, IPv6Network, IPv4Address
+import re
+
+
+def _validate_fingerprint(fp: str) -> bool:
+    """Проверяет формат отпечатка SHA-256: sha256:<64 hex chars>"""
+    pattern = r'^sha256:[0-9a-fA-F]{64}$'
+    return bool(re.match(pattern, fp))
 
 
 @dataclass
@@ -82,6 +89,7 @@ class NebulaConfig:
     ca_pem: str = ""
     in_pub: str = ""
     ca_key_path: str = ""
+    blocklist: list = field(default_factory=list)
     lighthouse: dict = field(default_factory=dict)
     hosts: dict = field(default_factory=dict)
 
@@ -104,6 +112,10 @@ class NebulaConfig:
             if ip in seen:
                 raise ValueError(f"Дублирующийся relay_server: {ip}")
             seen.add(ip)
+        # валидация blocklist (SHA-256 отпечатки)
+        for fp in self.blocklist:
+            if not _validate_fingerprint(fp):
+                raise ValueError(f"Невалидный отпечаток в blocklist: {fp}. Формат: sha256:<64 hex chars>")
 
 
 def validate_config(config_dict: dict) -> NebulaConfig:
@@ -142,6 +154,7 @@ def validate_config(config_dict: dict) -> NebulaConfig:
         ca_pem=config_dict.get('ca_pem', ''),
         in_pub=config_dict.get('in_pub', ''),
         ca_key_path=config_dict.get('ca_key_path', ''),
+        blocklist=config_dict.get('blocklist', []),
         lighthouse=config_dict.get('lighthouse', {}),
         hosts=config_dict.get('hosts', {})
     )

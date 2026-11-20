@@ -77,6 +77,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/etc/nebula/nebula -config /etc/nebula/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
