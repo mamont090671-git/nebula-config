@@ -97,6 +97,7 @@ See `config-nebula.yaml` (not in repo) — contains `net-name`, `relay_servers`,
 | `ca_pem` | Inline CA PEM (optional) |
 | `in_pub` | Key-based signing (optional) |
 | `ca_key_path` | Path to external CA key (optional) |
+| `blocklist` | SHA-256 fingerprints of revoked certificates (optional) |
 | `groups` | Access groups (comma-separated) |
 | `nebula_ip` | Internal IP + CIDR (ipv4/ipv6) |
 | `port` | `4242` = public, `0` = NAT |
@@ -217,9 +218,11 @@ Automatic checks after generation:
 ## Security
 
 - `ca_key_path` — external CA key (not generated in `output/ca/`)
+- `blocklist` — certificate revocation by SHA-256 fingerprint
 - systemd hardening — `ProtectSystem=strict`, `NoNewPrivileges=true`
 - Keep `ca.key` offline
 - Rotate certificates regularly
+- To update blocklist without breaking tunnels: `systemctl reload nebula`
 
 ## CI/CD
 

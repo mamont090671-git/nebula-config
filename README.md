@@ -101,6 +101,7 @@ nebula-config/
 | `ca_pem` | Inline CA PEM (необязательно) |
 | `in_pub` | Key-based signing (необязательно) |
 | `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
+| `blocklist` | SHA-256 отпечатки отозванных сертификатов (необязательно) |
 | `groups` | Группы доступа (через запятую) |
 | `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
 | `port` | `4242` = публичный, `0` = NAT |
@@ -212,9 +213,11 @@ ssh user@remote-host "sudo bash /etc/nebula/nebula_service.sh /etc/nebula"
 ## Безопасность
 
 - `ca_key_path` — внешний CA-ключ (не генерируется в `output/ca/`)
+- `blocklist` — отзыв сертификатов по SHA-256 отпечатку
 - systemd-харденинг — `ProtectSystem=strict`, `NoNewPrivileges=true`
 - Храните `ca.key` оффлайн
 - Регулярно обновляйте сертификаты
+- Для обновления blocklist без разрыва туннелей: `systemctl reload nebula`
 
 ## CI/CD
 
