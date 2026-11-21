@@ -19,112 +19,13 @@
 - **Харденинг systemd** — NoNewPrivileges, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest на каждый пуш
 
-## Быстрый старт
+## Установка
 
 ```bash
 ./setup.sh
 ```
 
-## Требования
-
-- Python 3.8+
-- Для деплоя: `sshpass` или настроенные SSH-ключи
-- SSH-доступ к целевым серверам (указан в `ssh_target`)
-
-## Пример конфигурации (config-nebula.yaml)
-
-```yaml
-net-name: my-net
-
-# Relay-серверы для NAT-хостов
-relay_servers:
-  - 192.168.10.101
-
-ca_pem: ""
-in_pub: ""
-ca_key_path: ""
-
-lighthouse:
-  lh-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.101/24
-      ipv6: fd00:1234:5678:a::101/64
-    port: 4242
-    public_ip: 203.0.113.1
-    am_relay: true
-    type: LH
-
-hosts:
-  # Публичный хост (прямо по hole-punch)
-  server-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.100/24
-      ipv6: fd00:1234:5678:a::100/64
-    port: 4242
-    public_ip: 203.0.113.2
-    type: HOST
-    # ssh_target: user@host:/etc/nebula
-
-  # NAT-хост (port 0 — нужен relay)
-  nat-client:
-    groups: home,ssh
-    nebula_ip:
-      ipv4: 192.168.10.102/24
-      ipv6: fd00:1234:5678:a::102/64
-    port: 0
-    type: HOST
-    # public_ip не нужен — port 0
-```
-
-## Структура проекта
-
-```
-nebula-config/
-├── setup.sh                  # Установочный скрипт (nebula binaries + pip)
-├── generate_configs.py       # Генератор + автодеплой (--push)
-├── validators.py             # Валидация конфига
-├── nebula_inventory.py       # Динамический инвентарь Ansible
-├── nebula_service.sh         # Deploy-скрипт (бинарник + systemd)
-├── templates/
-│   └── config.yaml           # Единый шаблон конфига
-├── tests/
-│   └── test_config.py        # 31 pytest-тест
-├── .github/
-│   └── workflows/
-│       └── ci.yml            # GitHub Actions CI
-├── output/                   # Сгенерированные конфиги (gitignore)
-└── config-nebula.yaml        # Мастер-конфиг (gitignore)
-```
-
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `nebula`, `nebula-cert` — в `.gitignore`.
-
-## Формат конфигурации
-
-См. `config-nebula.yaml` (не в репозитории) — содержит `net-name`, `relay_servers`, секции `lighthouse` и `hosts` с полями:
-
-| Поле | Описание |
-|------|----------|
-| `net-name` | Имя сети для CA |
-| `relay_servers` | Nebula IP relay-серверов |
-| `ca_pem` | Inline CA PEM (необязательно) |
-| `in_pub` | Key-based signing (необязательно) |
-| `ca_key_path` | Путь к внешнему CA-ключу (необязательно) |
-| `blocklist` | SHA-256 отпечатки отозванных сертификатов (необязательно) |
-| `groups` | Группы доступа (через запятую) |
-| `nebula_ip` | Внутренний IP + CIDR (ipv4/ipv6) |
-| `port` | `4242` = публичный, `0` = NAT |
-| `public_ip` | Публичный IP (для публичных узлов и lighthouse) |
-| `am_relay` | Relay-лайтхаус (только для lighthouse) |
-| `type` | `LH` или `HOST` |
-| `ssh_target` | `user@host:/etc/nebula` для `--push` |
-
-### Relay-архитектура
-
-NAT-хосты (`port: 0`) → `use_relays: true` + `relays:` секция.
-Relay-лайтхаус → `am_relay: true` + `use_relays: false`.
-Публичные хосты → `use_relays: false`.
+Скачивает бинарники Nebula, устанавливает Python-зависимости, создаёт `output/ca/`.
 
 ## Использование
 
