@@ -66,6 +66,19 @@ python3 generate_configs.py --push
 4. Creates systemd service
 5. Restarts nebula and shows status
 
+**For auto-deploy** set `ssh_target` for each node in `config-nebula.yaml`:
+
+```yaml
+hosts:
+  server-1:
+    # ... other fields ...
+    ssh_target: root@192.168.1.10:/etc/nebula
+```
+
+Format: `user@IP:/path/to/deploy`. If omitted — node is not auto-deployed, configs only in `output/`.
+
+> **Note:** `ssh_target` requires `sshpass` (for passwords) or configured SSH keys.
+
 ### Dynamic Ansible Inventory
 
 ```bash

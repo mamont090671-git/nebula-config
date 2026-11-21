@@ -97,9 +97,9 @@ hosts:
     # type: HOST — тип узла
     type: HOST
 
-    # ssh_target: необязательно, для автодеплоя (--push)
-    # Формат: user@host:/etc/nebula
-    # ssh_target: admin@203.0.113.2:/etc/nebula
+    # Автодеплой: пользователь@IP:/путь/куда/класть
+    # Без этого поля узел не деплоится автоматически
+    ssh_target: admin@203.0.113.2:/etc/nebula
 
   # --------------------------------------------------------
   # Пример 2: NAT-клиент (behind NAT)
@@ -119,8 +119,8 @@ hosts:
 
     type: HOST
 
-    # ssh_target для автодеплоя (если есть SSH-доступ)
-    # ssh_target: admin@192.168.1.100:/etc/nebula
+    # Автодеплой (если есть SSH-доступ)
+    ssh_target: admin@192.168.1.100:/etc/nebula
 
   # --------------------------------------------------------
   # Пример 3: Узел с IPv6
@@ -135,4 +135,5 @@ hosts:
     public_ip: 203.0.113.3
     port: 4242
     type: HOST
-    # ssh_target: admin@203.0.113.3:/etc/nebula
+    # Автодеплой
+    ssh_target: admin@203.0.113.3:/etc/nebula
