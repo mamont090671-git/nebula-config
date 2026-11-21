@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mamont090671-git/nebula-config/actions/workflows/ci.yml/badge.svg)](https://github.com/mamont090671-git/nebula-config/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/mamont090671-git/nebula-config)](https://github.com/mamont090671-git/nebula-config/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/github/v/release/mamont090671-git/nebula-config)](https://github.com/mamont090671-git/nebula-config/releases/tag/v1.1.0)
 
 Генератор конфигураций для сети [Nebula VPN](https://github.com/slackhq/nebula). Создаёт конфиги, сертификаты и деплоит на сервера из единого master-конфига.
 
@@ -44,6 +44,14 @@ python3 generate_configs.py --check-certs
 ```
 
 Проверяет все `.crt` в `output/` через `nebula-cert print`, выводит таблицу с оставшимся сроком действия. Exit 1 если до истечения < 30 дней.
+
+### Перевыпуск истекающих сертификатов
+
+```bash
+python3 generate_configs.py --renew-expiring
+```
+
+Находит сертификаты, истекающие в течение 30 дней, удаляет старые `.crt`/`.key`, перезапущивает сертификаты через CA и перезаписывает конфиги с обновлённым inline CA. Выводит отчёт: сколько сертификатов перевыпущено.
 
 ### Точечная генерация
 

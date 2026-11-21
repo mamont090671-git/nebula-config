@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mamont090671-git/nebula-config/actions/workflows/ci.yml/badge.svg)](https://github.com/mamont090671-git/nebula-config/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/mamont090671-git/nebula-config)](https://github.com/mamont090671-git/nebula-config/releases/tag/v1.0.0)
+[![Release](https://img.shields.io/github/v/release/mamont090671-git/nebula-config)](https://github.com/mamont090671-git/nebula-config/releases/tag/v1.1.0)
 
 Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) network in Python. Creates configurations, certificates, and deploys to servers from a single master config file.
 
@@ -44,6 +44,14 @@ python3 generate_configs.py --check-certs
 ```
 
 Checks all `.crt` in `output/` via `nebula-cert print`, outputs a table with days remaining. Exit 1 if < 30 days.
+
+### Renew Expiring Certificates
+
+```bash
+python3 generate_configs.py --renew-expiring
+```
+
+Finds certificates expiring within 30 days, deletes old `.crt`/`.key`, regenerates them via CA, and rewrites configs with updated inline CA. Reports how many certificates were renewed.
 
 ### Targeted Generation
 
