@@ -50,7 +50,7 @@ python3 generate_configs.py --check-certs
 ```bash
 python3 generate_configs.py --host server-1
 python3 generate_configs.py --only-hosts --host A B
-python3 generate_configs.py --only-lighthouses --host A B
+python3 generate_configs.py --only-lights --light A B
 ```
 
 ### Деплой на удалённые сервера

@@ -19,107 +19,13 @@ Configuration generator for [Nebula VPN](https://github.com/slackhq/nebula) netw
 - **Systemd hardening** — least privilege, `ProtectSystem=strict`
 - **CI/CD** — ruff + pytest on every push
 
-## Quick Start
+## Installation
 
 ```bash
 ./setup.sh
 ```
 
-## Requirements
-
-- Python 3.8+
-- For deployment: `sshpass` or configured SSH keys
-
-## Example Configuration (config-nebula.yaml)
-
-```yaml
-net-name: x-net
-
-# Relay servers for NAT hosts
-relay_servers:
-  - 192.168.10.101
-
-ca_pem: ""
-in_pub: ""
-ca_key_path: ""
-
-lighthouse:
-  light-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.101/24
-      ipv6: fd00:1234:5678:a::101/64
-    port: 4242
-    public_ip: 138.100.15.25
-    am_relay: true
-
-hosts:
-  # Public host (direct hole-punch)
-  server-1:
-    groups: home
-    nebula_ip:
-      ipv4: 192.168.10.100/24
-      ipv6: fd00:1234:5678:a::100/64
-    port: 4242
-    public_ip: 31.57.105.170
-    # ssh_target: user@31.57.105.170:/etc/nebula
-
-  # NAT host (port 0 — needs relay)
-  client-1:
-    groups: home,ssh
-    nebula_ip:
-      ipv4: 192.168.10.102/24
-      ipv6: fd00:1234:5678:a::102/64
-    port: 0
-    # public_ip not needed — port 0
-```
-
-## Project Structure
-
-```
-nebula-config/
-├── setup.sh                  # Install script (nebula binaries + pip)
-├── generate_configs.py       # Main config generator (+ --push)
-├── validators.py             # Config validation
-├── nebula_inventory.py       # Dynamic Ansible inventory
-├── nebula_service.sh         # Deploy script (binary + systemd)
-├── templates/
-│   └── config.yaml           # Unified config template
-├── tests/
-│   └── test_config.py        # 31 pytest tests
-├── .github/
-│   └── workflows/
-│       └── ci.yml            # GitHub Actions CI
-├── output/                   # Generated configs (gitignore)
-└── config-nebula.yaml        # Master config (gitignore)
-```
-
-> `output/`, `__pycache__/`, `config-nebula.yaml`, `*.key`, `*.pem`, `nebula`, `nebula-cert` are in `.gitignore`.
-
-## Configuration Format
-
-See `config-nebula.yaml` (not in repo) — contains `net-name`, `relay_servers`, `lighthouse` and `hosts` sections with fields:
-
-| Field | Description |
-|-------|-------------|
-| `net-name` | Network name for CA |
-| `relay_servers` | Relay server IPs |
-| `ca_pem` | Inline CA PEM (optional) |
-| `in_pub` | Key-based signing (optional) |
-| `ca_key_path` | Path to external CA key (optional) |
-| `blocklist` | SHA-256 fingerprints of revoked certificates (optional) |
-| `groups` | Access groups (comma-separated) |
-| `nebula_ip` | Internal IP + CIDR (ipv4/ipv6) |
-| `port` | `4242` = public, `0` = NAT |
-| `public_ip` | Public IP (for public nodes) |
-| `am_relay` | Relay lighthouse (lighthouse only) |
-| `ssh_target` | `user@host:/etc/nebula` for `--push` |
-
-### Relay Architecture
-
-NAT hosts (`port: 0`) → `use_relays: true` + `relays:` section.
-Relay lighthouse → `am_relay: true` + `use_relays: false`.
-Public hosts → `use_relays: false`.
+Downloads Nebula binaries, installs Python dependencies, creates `output/ca/`.
 
 ## Usage
 
@@ -144,7 +50,7 @@ Checks all `.crt` in `output/` via `nebula-cert print`, outputs a table with day
 ```bash
 python3 generate_configs.py --host server-1
 python3 generate_configs.py --only-hosts --host A B
-python3 generate_configs.py --only-lights --light light-1
+python3 generate_configs.py --only-lights --light X Y
 ```
 
 ### Deploy to Remote Servers
