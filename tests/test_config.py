@@ -233,9 +233,11 @@ class TestRealConfigValidation:
     def test_real_config_is_valid(self):
         import yaml
         config_path = os.path.join(os.path.dirname(__file__), '..', 'config-nebula.yaml')
+        if not os.path.exists(config_path):
+            pytest.skip("config-nebula.yaml отсутствует (в .gitignore)")
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        
+
         is_valid, error = validate_config_safe(config)
         assert is_valid is True, f"Реальный конфиг невалиден: {error}"
 
@@ -243,9 +245,11 @@ class TestRealConfigValidation:
         """Проверка что relay_servers указан для NAT-хостов."""
         import yaml
         config_path = os.path.join(os.path.dirname(__file__), '..', 'config-nebula.yaml')
+        if not os.path.exists(config_path):
+            pytest.skip("config-nebula.yaml отсутствует (в .gitignore)")
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        
+
         nat_hosts = [name for name, data in config.get('hosts', {}).items() if str(data.get('port', '4242')) == '0']
         if nat_hosts:
             relays = config.get('relay_servers', [])
@@ -321,12 +325,10 @@ class TestCheckCertsParsing:
 
     def test_parse_not_after_standard(self):
         """Парсинг Not After: Oct 29 15:18:25 2026 GMT."""
-        import subprocess
         import datetime
-        
-        # Тестовая строка из вывода nebula-cert
+
         line = 'Not After: Oct 29 15:18:25 2026 GMT'
-        date_str = line.split(':')[-1].strip()
+        date_str = line.split(': ', 1)[1].strip()
         expiry = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
         expiry = expiry.replace(tzinfo=datetime.timezone.utc)
         assert expiry.year == 2026
@@ -335,9 +337,9 @@ class TestCheckCertsParsing:
     def test_parse_not_after_iso(self):
         """Парсинг Not After ISO формат."""
         import datetime
-        
+
         line = 'notAfter: 2026-10-29T15:18:25Z'
-        date_str = line.split(':')[-1].strip()
+        date_str = line.split(': ', 1)[1].strip()
         expiry = datetime.datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%SZ')
         expiry = expiry.replace(tzinfo=datetime.timezone.utc)
         assert expiry.year == 2026
