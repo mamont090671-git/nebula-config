@@ -1345,7 +1345,9 @@ def main():
                                 all_nodes[host_name] = host_data
 
                             if name not in all_nodes:
-                                print(f"    ✗ Узел '{name}' не найден в конфиге — пропускаю")
+                                print(
+                                    f"    ✗ Узел '{name}' не найден в конфиге — пропускаю"
+                                )
                                 continue
 
                             node_data = all_nodes[name]
@@ -1373,22 +1375,38 @@ def main():
                     for lh_name in light_targets:
                         lh_data = lighthouses[lh_name]
                         rendered = render_config(
-                            template, lh_name, lh_data, "lighthouse",
-                            lighthouses, relay_servers, ca_pem, blocklist,
-                            network_dev=network_dev, network_subnet=network_subnet,
+                            template,
+                            lh_name,
+                            lh_data,
+                            "lighthouse",
+                            lighthouses,
+                            relay_servers,
+                            ca_pem,
+                            blocklist,
+                            network_dev=network_dev,
+                            network_subnet=network_subnet,
                         )
                         write_config(lh_name, rendered, ca_crt_path, False, in_pub)
                     for host_name in host_targets:
                         host_data = hosts[host_name]
                         rendered = render_config(
-                            template, host_name, host_data, "host",
-                            lighthouses, relay_servers, ca_pem, blocklist,
-                            network_dev=network_dev, network_subnet=network_subnet,
+                            template,
+                            host_name,
+                            host_data,
+                            "host",
+                            lighthouses,
+                            relay_servers,
+                            ca_pem,
+                            blocklist,
+                            network_dev=network_dev,
+                            network_subnet=network_subnet,
                         )
                         write_config(host_name, rendered, ca_crt_path, False, in_pub)
                     print("  ✓ Конфиги обновлены")
                 else:
-                    print("\n  ⚠ Не удалось перевыпустить ни один сертификат — проверьте доступность nebula-cert и CA")
+                    print(
+                        "\n  ⚠ Не удалось перевыпустить ни один сертификат — проверьте доступность nebula-cert и CA"
+                    )
                     sys.exit(1)
                 sys.exit(0)
             else:
