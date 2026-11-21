@@ -193,4 +193,12 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ## Recent Changes
 
-- **2026-11-21** — CI: updated GitHub Actions (`checkout@v5`, `setup-python@v6`), pinned ruff (0.17.6), fixed `generate_configs.py` formatting
+Полный список изменений — [CHANGELOG.md](CHANGELOG.md).
+
+Кратко за 2026-11-21 (20 коммитов):
+- **CI**: `checkout@v5`, `setup-python@v6`, pinned `ruff==0.17.6`
+- **Feature**: `--renew-expiring` — automatic renewal of expiring certificates
+- **Feature**: `--dry-run` for `--push` — deploy preview
+- **Safety**: backup + `nebula -test` + auto-rollback in `nebula_service.sh`
+- **CI/CD**: fix skipped tests, remove binaries from git, simplify workflow
+- **Docs**: full README redesign (sections, examples, `ssh_target`)
