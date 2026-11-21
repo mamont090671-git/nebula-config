@@ -18,6 +18,8 @@ output/ca/
 # Binaries и for-all (кроме сервисного скрипта)
 for-all/
 !for-all/nebula_service.sh
+nebula
+nebula-cert
 
 # Environment
 .env
