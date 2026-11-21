@@ -91,7 +91,27 @@ PrivateTmp=yes
 WantedBy=multi-user.target
 SERVICE
 
-# 5. Включаем и запускаем
+# 5. Бэкап текущего конфига
+if [ -f /etc/nebula/config.yaml ]; then
+    cp -f /etc/nebula/config.yaml /etc/nebula/config.yaml.bak
+    echo "✓ Бэкап: config.yaml.bak"
+fi
+
+# 6. Тест конфига перед запуском
+echo "Тест конфигурации..."
+if "$NEBULA_HOME/nebula" -test -config /etc/nebula/config.yaml 2>&1; then
+    echo "✓ Конфиг валиден"
+else
+    echo "❌ Тест конфига FAILED — откат"
+    if [ -f /etc/nebula/config.yaml.bak ]; then
+        cp -f /etc/nebula/config.yaml.bak /etc/nebula/config.yaml
+        echo "✓ Откат: config.yaml.bak → config.yaml"
+    fi
+    echo "⚠ Откат: nebula НЕ запущен"
+    exit 1
+fi
+
+# 7. Включаем и запускаем
 systemctl daemon-reload
 systemctl enable nebula.service
 systemctl restart nebula.service
