@@ -829,7 +829,7 @@ SCRIPT"""
     return True, "Сервис создан и включён"
 
 
-def deploy_configs(config, lighthouses, hosts):
+def deploy_configs(config, lighthouses, hosts, dry_run=False):
     """Деплой конфигов на удалённые сервера через ssh_target с хэш-фильтрацией.
 
     Алгоритм:
@@ -846,6 +846,13 @@ def deploy_configs(config, lighthouses, hosts):
     deployed = 0
     skipped = 0
     failed = 0
+    would_change = 0
+    would_skip = 0
+
+    if dry_run:
+        print("\n" + "=" * 60)
+        print("РЕЖИМ ПРЕДПРОСМОТРА (dry-run) — ничего не изменится")
+        print("=" * 60)
 
     for node_name, node_data in all_nodes.items():
         ssh_target = node_data.get("ssh_target")
@@ -875,6 +882,7 @@ def deploy_configs(config, lighthouses, hosts):
 
         # Проверяем хэши на сервере
         needs_deploy = has_critical
+        changed_files = []
         if has_critical:
             for item in all_files:
                 remote_path = f"{remote_base}/{item.name}"
@@ -883,16 +891,28 @@ def deploy_configs(config, lighthouses, hosts):
                 if remote_hash is None:
                     # Файл не существует на сервере — нужно копировать
                     needs_deploy = True
-                    print(f"  ! {node_name}: {item.name} не найден на сервере, копирую")
+                    changed_files.append(f"[НОВЫЙ] {item.name}")
                     break
                 if local_hash != remote_hash:
                     needs_deploy = True
-                    print(f"  ~ {node_name}: {item.name} изменился, копирую")
+                    changed_files.append(f"[ИЗМЕНЁН] {item.name}")
                     break
 
         if not needs_deploy:
             print(f"  = {node_name}: всё unchanged, пропускаю")
             skipped += 1
+            if dry_run:
+                would_skip += 1
+            continue
+
+        if dry_run:
+            would_change += 1
+            print(f"\n  📋 {node_name} ({remote_host}):")
+            print(f"     Файлы для деплоя: {', '.join(changed_files)}")
+            print(f"     Статус бинарников: [проверка через SSH]")
+            print(f"     systemd-сервис: [создание/обновление]")
+            print(f"     Файлы: {' → '.join(f'{f.name} → {remote_base}/{f.name}' for f in all_files)}")
+            print(f"     Перезапуск nebula: ДА")
             continue
 
         # Деплоим бинарники (автоопределение архитектуры + скачивание)
@@ -948,11 +968,21 @@ def deploy_configs(config, lighthouses, hosts):
             print(f"  ✗ {node_name}: нет файлов скопировано")
             failed += 1
 
-    if skipped:
-        print(f"\n  Пропущено unchanged: {skipped}")
-    if failed:
-        print(f"\n  Ошибок: {failed}")
-    print(f"  Развернуто: {deployed}")
+    if dry_run:
+        print(f"\n{'=' * 60}")
+        print("ИТОГО ПРЕДПРОСМОТРА:")
+        print(f"  📋 Будет изменено: {would_change} узел(ов)")
+        print(f"  = Будет пропущено (unchanged): {would_skip} узел(ов)")
+        print(f"  ✗ Ошибок: {failed} узел(ов)")
+        if would_change:
+            print(f"\n  Запустите без --dry-run для фактического деплоя.")
+        print(f"{'=' * 60}")
+    else:
+        if skipped:
+            print(f"\n  Пропущено unchanged: {skipped}")
+        if failed:
+            print(f"\n  Ошибок: {failed}")
+        print(f"  Развернуто: {deployed}")
 
     return deployed
 
@@ -1028,6 +1058,11 @@ def main():
         "--push",
         action="store_true",
         help="Развернуть сгенерированные конфиги на удалённые сервера через ssh_target",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Предпросмотр --push: показать что изменится без деплоя",
     )
     parser.add_argument(
         "--check-certs",
@@ -1341,7 +1376,7 @@ def main():
 
     # P3.1: Деплой через ssh_target
     if args.push:
-        deployed = deploy_configs(config, lighthouses, hosts)
+        deployed = deploy_configs(config, lighthouses, hosts, dry_run=args.dry_run)
         if deployed:
             print(f"\n✓ Развернуто на {deployed} узлах")
         else:
