@@ -1072,6 +1072,11 @@ def main():
         help="Проверить срок действия всех сертификатов в output/ (exit 1 если < 30 дней)",
     )
     parser.add_argument(
+        "--renew-expiring",
+        action="store_true",
+        help="Перевыпустить сертификаты для узлов с истекающими < 30 дней",
+    )
+    parser.add_argument(
         "--cert-path",
         type=str,
         default=None,
@@ -1216,7 +1221,82 @@ def main():
             print(
                 f"\n⚠ ИТОГО: {len(expiring_soon)} истекающих, {len(expired)} просроченных"
             )
-            sys.exit(1)
+            # Если --renew-expiring — перевыпускаем вместо выхода
+            if args.renew_expiring:
+                renew_count = 0
+                for name, days in expiring_soon + expired:
+                    # Ищем файл в output/
+                    for crt_file in sorted(output_dir.glob("**/*.crt")):
+                        if crt_file.parent.name == "ca":
+                            continue
+                        if name in crt_file.name:
+                            # Удаляем старый сертификат и ключ
+                            node_dir = crt_file.parent
+                            cert_base = crt_file.stem
+                            old_crt = crt_file
+                            old_key = node_dir / f"{cert_base}.key"
+                            old_crt.unlink()
+                            if old_key.exists():
+                                old_key.unlink()
+                            print(f"\n  🔄 Перевыпуск: {name} ({days})")
+
+                            # Перезапускаем генерацию нового сертификата
+                            config = load_config()
+                            all_nodes = {}
+                            for lh_name, lh_data in config.get("lighthouse", {}).items():
+                                all_nodes[lh_name] = lh_data
+                            for host_name, host_data in config.get("hosts", {}).items():
+                                all_nodes[host_name] = host_data
+
+                            if name not in all_nodes:
+                                print(f"    ✗ Узел '{name}' не найден в конфиге — пропускаю")
+                                continue
+
+                            node_data = all_nodes[name]
+                            ca_dir = OUTPUT_DIR / "ca"
+                            in_pub_val = config.get("in_pub", "") or None
+
+                            success, _ = generate_node_certificate(
+                                name,
+                                node_data,
+                                ca_dir,
+                                nebula_cert_path,
+                                in_pub=in_pub_val,
+                                external_ca_key=external_ca_key,
+                                ca_crt_path=ca_crt_path,
+                            )
+                            if success:
+                                print(f"    ✓ Перевыпущен: {node_dir / cert_base}.crt")
+                                renew_count += 1
+                            else:
+                                print(f"    ✗ Ошибка перевыпуска")
+                if renew_count:
+                    print(f"\n✅ Перевыпущено: {renew_count} сертификат(ов)")
+                    # Перезаписываем конфиги для обновлённых узлов
+                    print("\n  🔄 Перезапись конфигов...")
+                    for lh_name in light_targets:
+                        lh_data = lighthouses[lh_name]
+                        rendered = render_config(
+                            template, lh_name, lh_data, "lighthouse",
+                            lighthouses, relay_servers, ca_pem, blocklist,
+                            network_dev=network_dev, network_subnet=network_subnet,
+                        )
+                        write_config(lh_name, rendered, ca_crt_path, False, in_pub)
+                    for host_name in host_targets:
+                        host_data = hosts[host_name]
+                        rendered = render_config(
+                            template, host_name, host_data, "host",
+                            lighthouses, relay_servers, ca_pem, blocklist,
+                            network_dev=network_dev, network_subnet=network_subnet,
+                        )
+                        write_config(host_name, rendered, ca_crt_path, False, in_pub)
+                    print("  ✓ Конфиги обновлены")
+                else:
+                    print("\n  ⚠ Не удалось перевыпустить ни один сертификат — проверьте доступность nebula-cert и CA")
+                    sys.exit(1)
+                sys.exit(0)
+            else:
+                sys.exit(1)
         else:
             print(f"\n✅ ВСЕ сертификаты валидны ({len(valid)} шт.)")
             sys.exit(0)
