@@ -59,6 +59,14 @@ python3 generate_configs.py --only-lights --light X Y
 python3 generate_configs.py --push
 ```
 
+**Preview before deploy:**
+
+```bash
+python3 generate_configs.py --push --dry-run
+```
+
+Shows which nodes and files would change, without actually deploying.
+
 **Automatically:**
 1. Detects remote architecture via SSH
 2. Downloads Nebula binary

@@ -59,6 +59,14 @@ python3 generate_configs.py --only-lights --light A B
 python3 generate_configs.py --push
 ```
 
+**Предпросмотр перед деплоем:**
+
+```bash
+python3 generate_configs.py --push --dry-run
+```
+
+Покажет какие узлы и файлы изменятся, без фактического деплоя.
+
 **Автоматически:**
 1. Скачивает подходящий бинарник Nebula (определяет архитектуру через SSH)
 2. Копирует конфиги + сертификаты на сервер
