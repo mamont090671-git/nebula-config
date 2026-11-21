@@ -77,7 +77,13 @@ hosts:
 
 Format: `user@IP:/path/to/deploy`. If omitted — node is not auto-deployed, configs only in `output/`.
 
-> **Note:** `ssh_target` requires `sshpass` (for passwords) or configured SSH keys.
+> **Important:** `ssh_target` works **with SSH keys only** (no password auth).
+> Set up keys first:
+> ```bash
+> ssh-keygen -t ed25519
+> ssh-copy-id root@192.168.1.10
+> ```
+> Passwords **cannot** be stored in config — insecure. For password auth use `sshpass` manually.
 
 ### Dynamic Ansible Inventory
 
