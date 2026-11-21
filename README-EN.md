@@ -190,3 +190,7 @@ GitHub Actions: `ruff check` + `ruff format --check` + `pytest` on every push/PR
 ## License
 
 MIT License — see [LICENSE](LICENSE) file.
+
+## Recent Changes
+
+- **2026-11-21** — CI: updated GitHub Actions (`checkout@v5`, `setup-python@v6`), pinned ruff (0.17.6), fixed `generate_configs.py` formatting
