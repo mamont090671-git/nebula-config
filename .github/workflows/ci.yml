@@ -43,3 +43,15 @@ jobs:
       # Раскомментируйте, если validators.py умеет работать на тестовых данных из репо
       # - name: Validate real config
       #   run: python3 validators.py
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: ShellCheck setup.sh
+        run: shellcheck setup.sh
+      - name: ShellCheck nebula_service.sh
+        run: shellcheck nebula_service.sh
+
