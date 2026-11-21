@@ -911,7 +911,9 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             print(f"     Файлы для деплоя: {', '.join(changed_files)}")
             print("     Статус бинарников: [проверка через SSH]")
             print("     systemd-сервис: [создание/обновление]")
-            print(f"     Файлы: {' → '.join(f'{f.name} → {remote_base}/{f.name}' for f in all_files)}")
+            print(
+                f"     Файлы: {' → '.join(f'{f.name} → {remote_base}/{f.name}' for f in all_files)}"
+            )
             print("     Перезапуск nebula: ДА")
             continue
 
