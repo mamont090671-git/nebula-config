@@ -66,6 +66,12 @@ python3 generate_configs.py --push
 4. Creates systemd service
 5. Restarts nebula and shows status
 
+**Deploy safety:**
+- Backup `config.yaml.bak` before replacing config
+- **`nebula -test`** validation before startup
+- If test fails — **auto-rollback** from backup, nebula **does not start**
+- Server won't lose connectivity on config errors
+
 **For auto-deploy** set `ssh_target` for each node in `config-nebula.yaml`:
 
 ```yaml
