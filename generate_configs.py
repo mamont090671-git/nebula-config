@@ -1119,6 +1119,104 @@ def main():
         generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=in_pub)
         sys.exit(0)
 
+    # Загрузка конфига и базовых переменных (до --check-certs для --renew-expiring)
+    config = load_config()
+    print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
+
+    lighthouses = config.get("lighthouse", {})
+    hosts = config.get("hosts", {})
+    relay_servers = config.get("relay_servers", [])
+    ca_pem = config.get("ca_pem", "") or None
+    in_pub = config.get("in_pub", "") or None
+    ca_key_path = config.get("ca_key_path", "") or None
+    blocklist = config.get("blocklist", []) or None
+    network_dev = config.get("dev", "nebula1")
+
+    # Выводим subnet из первого узла
+    import ipaddress
+
+    all_nodes = {**config.get("lighthouse", {}), **config.get("hosts", {})}
+    network_subnet = "192.168.10.0/24"  # fallback
+    for name, data in all_nodes.items():
+        nebula_ip = data.get("nebula_ip", {}).get("ipv4", "")
+        if nebula_ip:
+            network_subnet = str(ipaddress.ip_network(nebula_ip, strict=False))
+            break
+
+    # P1.1: Если ca_key_path задан — используем внешний ключ
+    external_ca_key = None
+    if ca_key_path:
+        external_ca_key = Path(ca_key_path)
+        if not external_ca_key.exists():
+            print(
+                f"⚠ ca_key_path задан, но файл не найден: {external_ca_key}",
+                file=sys.stderr,
+            )
+            external_ca_key = None
+        else:
+            print(f"✓ Используем внешний CA-ключ: {external_ca_key}")
+            print(
+                f"  CA не будет сгенерирован — используется ключ из {external_ca_key}"
+            )
+
+    # Определяем какие узлы генерировать
+    if args.only_hosts:
+        host_targets = args.host or []
+        if not host_targets:
+            print(
+                "Ошибка: --only-hosts требует указания узлов через --host",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        host_targets = args.host if args.host else list(hosts.keys())
+
+    # Определяем какие маяки генерировать
+    if args.only_lights:
+        light_targets = args.light or []
+        if not light_targets:
+            print(
+                "Ошибка: --only-lights требует указания маяков через --light",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        light_targets = args.light if args.light else list(lighthouses.keys())
+
+    # Фильтрация
+    host_targets = [t for t in host_targets if t in hosts]
+    light_targets = [l for l in light_targets if l in lighthouses]
+
+    if not host_targets and not light_targets:
+        print(
+            "\nНичего не генерировано - проверьте имена узлов/маяков", file=sys.stderr
+        )
+        sys.exit(1)
+
+    # Загружаем единый шаблон
+    template = load_template()
+
+    # CA
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    ca_dir = OUTPUT_DIR / "ca"
+    ca_crt_path = ca_dir / "ca.crt"
+    auto_generate = False
+    if ca_crt_path.exists():
+        print(f"✓ CA-сертификат найден: {ca_crt_path}")
+    else:
+        print("⚠ CA-сертификат не найден. Генерируем CA...")
+        network_name = config.get("net-name", "nebula-net")
+        generate_ca(network_name, nebula_cert_path)
+        auto_generate = True
+
+    # P2.1: Валидация конфига
+    is_valid, error = validate_config_safe(config)
+    if not is_valid:
+        print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print("✓ Конфиг валиден")
+
     # Проверка сертификатов
     if args.check_certs:
         import datetime
@@ -1134,7 +1232,6 @@ def main():
             sys.exit(0)
 
         now = datetime.datetime.now(datetime.UTC)
-        datetime.timedelta(days=30)
         expired = []
         expiring_soon = []
         valid = []
@@ -1159,7 +1256,7 @@ def main():
                 # Парсим NotAfter из вывода nebula-cert print
                 for line in result.stdout.split("\n"):
                     if "Not After" in line or "notAfter" in line:
-                        date_str = line.split(":")[-1].strip()
+                        date_str = line.split(": ", 1)[1].strip()
                         # Формат: Oct 29 15:18:25 2026 GMT
                         try:
                             expiry = datetime.datetime.strptime(
@@ -1241,11 +1338,10 @@ def main():
                             print(f"\n  🔄 Перевыпуск: {name} ({days})")
 
                             # Перезапускаем генерацию нового сертификата
-                            config = load_config()
                             all_nodes = {}
-                            for lh_name, lh_data in config.get("lighthouse", {}).items():
+                            for lh_name, lh_data in lighthouses.items():
                                 all_nodes[lh_name] = lh_data
-                            for host_name, host_data in config.get("hosts", {}).items():
+                            for host_name, host_data in hosts.items():
                                 all_nodes[host_name] = host_data
 
                             if name not in all_nodes:
@@ -1253,13 +1349,13 @@ def main():
                                 continue
 
                             node_data = all_nodes[name]
-                            ca_dir = OUTPUT_DIR / "ca"
+                            ca_dir_renew = OUTPUT_DIR / "ca"
                             in_pub_val = config.get("in_pub", "") or None
 
                             success, _ = generate_node_certificate(
                                 name,
                                 node_data,
-                                ca_dir,
+                                ca_dir_renew,
                                 nebula_cert_path,
                                 in_pub=in_pub_val,
                                 external_ca_key=external_ca_key,
@@ -1269,7 +1365,7 @@ def main():
                                 print(f"    ✓ Перевыпущен: {node_dir / cert_base}.crt")
                                 renew_count += 1
                             else:
-                                print(f"    ✗ Ошибка перевыпуска")
+                                print("    ✗ Ошибка перевыпуска")
                 if renew_count:
                     print(f"\n✅ Перевыпущено: {renew_count} сертификат(ов)")
                     # Перезаписываем конфиги для обновлённых узлов
@@ -1304,104 +1400,6 @@ def main():
     # Основная генерация
     print("Генерация конфигураций Nebula VPN")
     print("=" * 50)
-
-    config = load_config()
-    print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
-
-    # P2.1: Валидация конфига
-    is_valid, error = validate_config_safe(config)
-    if not is_valid:
-        print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
-        sys.exit(1)
-    else:
-        print("✓ Конфиг валиден")
-
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Проверяем наличие CA-сертификата и генерируем если нет
-    ca_dir = OUTPUT_DIR / "ca"
-    ca_crt_path = ca_dir / "ca.crt"
-    auto_generate = False
-    if ca_crt_path.exists():
-        print(f"✓ CA-сертификат найден: {ca_crt_path}")
-    else:
-        print("⚠ CA-сертификат не найден. Генерируем CA...")
-        network_name = config.get("net-name", "nebula-net")
-        generate_ca(network_name, nebula_cert_path)
-        auto_generate = True
-
-    lighthouses = config.get("lighthouse", {})
-    hosts = config.get("hosts", {})
-    relay_servers = config.get("relay_servers", [])
-    ca_pem = config.get("ca_pem", "") or None
-    in_pub = config.get("in_pub", "") or None
-    ca_key_path = config.get("ca_key_path", "") or None
-    blocklist = config.get("blocklist", []) or None
-    network_dev = config.get("dev", "nebula1")
-
-    # Выводим subnet из первого узла
-    import ipaddress
-
-    all_nodes = {**config.get("lighthouse", {}), **config.get("hosts", {})}
-    network_subnet = "192.168.10.0/24"  # fallback
-    for name, data in all_nodes.items():
-        nebula_ip = data.get("nebula_ip", {}).get("ipv4", "")
-        if nebula_ip:
-            network_subnet = str(ipaddress.ip_network(nebula_ip, strict=False))
-            break
-
-    # P1.1: Если ca_key_path задан — используем внешний ключ
-    external_ca_key = None
-    if ca_key_path:
-        external_ca_key = Path(ca_key_path)
-        if not external_ca_key.exists():
-            print(
-                f"⚠ ca_key_path задан, но файл не найден: {external_ca_key}",
-                file=sys.stderr,
-            )
-            external_ca_key = None
-        else:
-            print(f"✓ Используем внешний CA-ключ: {external_ca_key}")
-            print(
-                f"  CA не будет сгенерирован — используется ключ из {external_ca_key}"
-            )
-
-    # Определяем какие узлы генерировать
-    if args.only_hosts:
-        host_targets = args.host or []
-        if not host_targets:
-            print(
-                "Ошибка: --only-hosts требует указания узлов через --host",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-    else:
-        host_targets = args.host if args.host else list(hosts.keys())
-
-    # Определяем какие маяки генерировать
-    if args.only_lights:
-        light_targets = args.light or []
-        if not light_targets:
-            print(
-                "Ошибка: --only-lights требует указания маяков через --light",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-    else:
-        light_targets = args.light if args.light else list(lighthouses.keys())
-
-    # Фильтрация
-    host_targets = [t for t in host_targets if t in hosts]
-    light_targets = [l for l in light_targets if l in lighthouses]
-
-    if not host_targets and not light_targets:
-        print(
-            "\nНичего не генерировано - проверьте имена узлов/маяков", file=sys.stderr
-        )
-        sys.exit(1)
-
-    # Загружаем единый шаблон
-    template = load_template()
 
     # Генерация маяков
     if light_targets:

@@ -257,10 +257,10 @@ class TestRealConfigValidation:
         import yaml
 
         config_path = os.path.join(
-            os.path.dirname(__file__), "..", "config-nebula.yaml"
+            os.path.dirname(__file__), "..", "config-nebula.example.yaml"
         )
         if not os.path.exists(config_path):
-            pytest.skip("config-nebula.yaml отсутствует (в .gitignore)")
+            pytest.skip("config-nebula.example.yaml отсутствует")
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
@@ -272,10 +272,10 @@ class TestRealConfigValidation:
         import yaml
 
         config_path = os.path.join(
-            os.path.dirname(__file__), "..", "config-nebula.yaml"
+            os.path.dirname(__file__), "..", "config-nebula.example.yaml"
         )
         if not os.path.exists(config_path):
-            pytest.skip("config-nebula.yaml отсутствует (в .gitignore)")
+            pytest.skip("config-nebula.example.yaml отсутствует")
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
