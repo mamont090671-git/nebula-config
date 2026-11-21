@@ -909,10 +909,10 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             would_change += 1
             print(f"\n  📋 {node_name} ({remote_host}):")
             print(f"     Файлы для деплоя: {', '.join(changed_files)}")
-            print(f"     Статус бинарников: [проверка через SSH]")
-            print(f"     systemd-сервис: [создание/обновление]")
+            print("     Статус бинарников: [проверка через SSH]")
+            print("     systemd-сервис: [создание/обновление]")
             print(f"     Файлы: {' → '.join(f'{f.name} → {remote_base}/{f.name}' for f in all_files)}")
-            print(f"     Перезапуск nebula: ДА")
+            print("     Перезапуск nebula: ДА")
             continue
 
         # Деплоим бинарники (автоопределение архитектуры + скачивание)
@@ -975,7 +975,7 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
         print(f"  = Будет пропущено (unchanged): {would_skip} узел(ов)")
         print(f"  ✗ Ошибок: {failed} узел(ов)")
         if would_change:
-            print(f"\n  Запустите без --dry-run для фактического деплоя.")
+            print("\n  Запустите без --dry-run для фактического деплоя.")
         print(f"{'=' * 60}")
     else:
         if skipped:
