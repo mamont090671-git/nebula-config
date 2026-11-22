@@ -19,12 +19,18 @@ import argparse
 import getpass
 import ipaddress
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from functools import lru_cache
 
 import yaml
+
+def log_error(msg: str):
+    """Выводит ошибку в stderr."""
+    print(f"✗ {msg}", file=sys.stderr)
 
 from validators import validate_config_safe
 
@@ -35,6 +41,7 @@ FOR_ALL_DIR = SCRIPT_DIR / "for-all"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 
 
+@lru_cache()
 def load_config():
     if not MASTER_CONFIG.exists():
         print(f"Ошибка: Конфигурация не найдена: {MASTER_CONFIG}", file=sys.stderr)
@@ -485,8 +492,12 @@ def generate_node_certificate(
 
     # Проверяем ca.key — если зашифрован, спрашиваем passphrase
     env = os.environ.copy()
-    with open(ca_key, "r") as kf:
-        first_line = kf.readline().strip()
+    try:
+        with open(ca_key, "r") as kf:
+            first_line = kf.readline().strip()
+    except (FileNotFoundError, PermissionError) as e:
+        print(f"  ⚠ Не удалось прочитать CA-ключ: {e}", file=sys.stderr)
+        return False, None
     if "ENCRYPTED" in first_line:
         env["NEBULA_CA_PASSPHRASE"] = get_ca_passphrase()
 
@@ -725,23 +736,32 @@ def detect_remote_arch(ssh_target):
 def get_latest_release():
     """Получает последний релиз Nebula."""
     # Пробуем gh → curl
-    for cmd in [
-        "gh release list --repo slackhq/nebula --limit 1 --json tagName --jq .[0].tagName 2>/dev/null",
-        "curl -sL https://api.github.com/repos/slackhq/nebula/releases/latest",
-    ]:
-        r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=15, check=False
-        )
-        if r.returncode == 0:
-            import re
+    # gh release list
+    r = subprocess.run(
+        ["gh", "release", "list", "--repo", "slackhq/nebula", "--limit", "1",
+         "--json", "tagName", "--jq", ".[0].tagName"],
+        capture_output=True, text=True, timeout=15, check=False
+    )
+    if r.returncode == 0:
+        lines = r.stdout.strip().split("\n")
+        if lines and lines[0] and "v" in lines[0]:
+            return lines[0].strip()
 
-            m = re.search(r'"tag_name":\s*"\K[^"]+', r.stdout)
-            if m:
-                return m.group(0)
-            # gh output
-            lines = r.stdout.strip().split("\n")
-            if lines and "v" in lines[0]:
-                return lines[0].strip()
+    # curl fallback
+    r = subprocess.run(
+        ["curl", "-sL", "https://api.github.com/repos/slackhq/nebula/releases/latest"],
+        capture_output=True, text=True, timeout=15, check=False
+    )
+    if r.returncode == 0:
+        import re
+        import json
+        try:
+            data = json.loads(r.stdout)
+            tag = data.get("tag_name", "")
+            if tag:
+                return tag
+        except json.JSONDecodeError:
+            pass
     return None
 
 
@@ -756,16 +776,14 @@ def deploy_binaries(ssh_target, remote_path):
         return False, "Не удалось получить версию релиза"
 
     # Проверяем есть ли бинарники
-    check_cmd = f'ssh "{ssh_target}" "test -f {remote_path}/nebula && test -f {remote_path}/nebula-cert"'
-    r = subprocess.run(
-        check_cmd, shell=True, capture_output=True, text=True, check=False
-    )
+    check_args = ["ssh", "-o", "StrictHostKeyChecking=no", ssh_target,
+                  f"test -f {remote_path}/nebula && test -f {remote_path}/nebula-cert"]
+    r = subprocess.run(check_args, capture_output=True, text=True, check=False, timeout=10)
     if r.returncode == 0:
         # Проверяем версию
-        ver_cmd = f'ssh "{ssh_target}" "{remote_path}/nebula-cert version 2>&1 || {remote_path}/nebula version 2>&1 || echo unknown"'
-        vr = subprocess.run(
-            ver_cmd, shell=True, capture_output=True, text=True, check=False
-        )
+        ver_args = ["ssh", "-o", "StrictHostKeyChecking=no", ssh_target,
+                    f"{remote_path}/nebula-cert version 2>&1 || {remote_path}/nebula version 2>&1 || echo unknown"]
+        vr = subprocess.run(ver_args, capture_output=True, text=True, check=False, timeout=10)
         current = vr.stdout.strip().split()[0] if vr.stdout.strip() else "unknown"
         if current == version:
             return True, f"Небуда {current} уже установлена"
@@ -774,27 +792,24 @@ def deploy_binaries(ssh_target, remote_path):
     archive = f"nebula-{version}-linux-{arch}.tar.gz"
     url = f"https://github.com/slackhq/nebula/releases/download/{version}/{archive}"
 
-    install_cmd = f"""ssh "{ssh_target}" <<'SCRIPT'
+    # Безопасная временная директория на удалённом сервере
+    setup_tmp = f"""ssh "{ssh_target}" <<'SCRIPT'
 set -e
 mkdir -p {remote_path}
-curl -fSL --retry 3 {url} -o /tmp/{archive}
-tar xzf /tmp/{archive} -C /tmp
+TMPDIR=$(mktemp -d)
+trap 'rm -rf "$TMPDIR"' EXIT
+curl -fSL --retry 3 {url} -o "$TMPDIR/{archive}"
+tar xzf "$TMPDIR/{archive}" -C "$TMPDIR"
 for bin in nebula nebula-cert; do
-    src=$(find /tmp -name "$bin" -type f ! -name "*_test" 2>/dev/null | head -1)
+    src=$(find "$TMPDIR" -name "$bin" -type f ! -name "*_test" 2>/dev/null | head -1)
     if [ -n "$src" ]; then
         cp -v "$src" {remote_path}/"$bin"
         chmod +x {remote_path}/"$bin"
     fi
 done
-rm -rf /tmp/{archive} /tmp/nebula-*
 SCRIPT"""
     r = subprocess.run(
-        install_cmd,
-        shell=True,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
+        setup_tmp, shell=True, capture_output=True, text=True, timeout=120, check=False
     )
     if r.returncode != 0:
         return False, f"Установка бинарников FAILED: {r.stderr[:300]}"
@@ -828,18 +843,22 @@ PrivateTmp=true
 WantedBy=multi-user.target
 """
 
-    cmd = f"""ssh "{ssh_target}" <<'SCRIPT'
-cat > /etc/systemd/system/nebula.service << 'EOF'
+    script = f"""cat > /etc/systemd/system/nebula.service << 'EOF'
 {service_content}
 EOF
 systemctl daemon-reload
 systemctl enable nebula
-SCRIPT"""
-    r = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, timeout=30, check=False
+"""
+    proc = subprocess.Popen(
+        ["ssh", ssh_target],
+        stdin=subprocess.PIPE,
+        capture_output=True,
+        text=True,
+        timeout=30
     )
-    if r.returncode != 0:
-        return False, f"Создание сервиса FAILED: {r.stderr[:300]}"
+    stdout, stderr = proc.communicate(script, timeout=30)
+    if proc.returncode != 0:
+        return False, f"Создание сервиса FAILED: {stderr[:300]}"
     return True, "Сервис создан и включён"
 
 
@@ -891,22 +910,36 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
 
         all_files = [item for item in node_dir.iterdir() if item.is_file()]
 
-        # Проверяем хэши на сервере
+        # Проверяем хэши на сервере одной SSH-командой
+        if all_files:
+            files_arg = " ".join(shlex.quote(f"{remote_base}/{f.name}") for f in all_files)
+            hash_cmd = f'ssh "{remote_host}" "sha256sum {files_arg}"'
+            hash_result = subprocess.run(
+                hash_cmd, shell=True, capture_output=True, text=True, timeout=60, check=False
+            )
+            if hash_result.returncode == 0:
+                remote_hashes = {}
+                for hline in hash_result.stdout.strip().split("\n"):
+                    parts = hline.split("  ", 1)
+                    if len(parts) == 2:
+                        remote_hashes[parts[1].strip()] = parts[0].strip()
+            else:
+                remote_hashes = {}  # ssh не сработал — считаем что нужно деплой
+        else:
+            remote_hashes = {}
+
         needs_deploy = False
         changed_files = []
         for item in all_files:
             remote_path = f"{remote_base}/{item.name}"
-            local_hash = compute_file_hash(item)
-            remote_hash = compute_remote_file_hash(ssh_target, remote_path)
-            if remote_hash is None:
-                # Файл не существует на сервере — нужно копировать
+            if remote_path not in remote_hashes:
                 needs_deploy = True
                 changed_files.append(f"[НОВЫЙ] {item.name}")
-                break
-            if local_hash != remote_hash:
+                continue
+            local_hash = compute_file_hash(item)
+            if local_hash != remote_hashes[remote_path]:
                 needs_deploy = True
                 changed_files.append(f"[ИЗМЕНЁН] {item.name}")
-                break
 
         if not needs_deploy:
             print(f"  = {node_name}: всё unchanged, пропускаю")
@@ -945,13 +978,49 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
         else:
             print(f"  ⚙️  {node_name}: {service_result[1]}")
 
+        # Локальная валидация config.yaml перед деплоем
+        nebula_test = next((Path(p).name for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts 
+                           for p2 in [Path("/usr/bin/nebula"), Path("/usr/local/bin/nebula"), Path("/bin/nebula"), Path("/usr/bin/nebula")]
+                           if (p2).exists()), None)
+        if nebula_test and not any((Path(p) / "nebula").exists() for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts):
+            nebula_test = None
+        # Проверяем nebula бинарник
+        nebula_bin = None
+        for candidate in [Path("/usr/bin/nebula"), Path("/usr/local/bin/nebula"), Path("/bin/nebula"), 
+                          Path.home() / ".local/bin/nebula"]:
+            if candidate.exists():
+                nebula_bin = str(candidate)
+                break
+        
+        config_valid = True
+        for item in all_files:
+            if item.name == "config.yaml":
+                if nebula_bin:
+                    test_r = subprocess.run(
+                        [nebula_bin, "-test", "-config", str(item)],
+                        capture_output=True, text=True, timeout=30, check=False
+                    )
+                    if test_r.returncode != 0:
+                        print(f"  ✗ {node_name}: config.yaml НЕ проходит nebula -test (локально)")
+                        if test_r.stderr:
+                            print(f"     STDERR: {test_r.stderr[:200]}")
+                        config_valid = False
+                        break
+                else:
+                    print(f"  ⚠ {node_name}: nebula не найден локально — пропускаю pre-deploy валидацию")
+        
+        if not config_valid:
+            print(f"  ✗ {node_name}: config.yaml невалиден, деплой отменён")
+            failed += 1
+            continue
+
         # Деплоим конфиги
         files_copied = []
         for item in all_files:
             remote_path = f"{remote_base}/{item.name}"
-            cmd = f'scp "{item}" "{ssh_target}:{remote_path}"'
+            scp_args = ["scp", str(item), f"{ssh_target}:{remote_path}"]
             result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, check=False
+                scp_args, capture_output=True, text=True, check=False
             )
             if result.returncode == 0:
                 files_copied.append(item.name)
@@ -959,25 +1028,37 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             else:
                 print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
 
+        # Тест конфига перед перезапуском (backup + rollback)
+        test_args = ["ssh", remote_host, f"{remote_base}/nebula -test -config {remote_base}/config.yaml"]
+        test_result = subprocess.run(
+            test_args, capture_output=True, text=True, timeout=30, check=False
+        )
+        if test_result.returncode != 0:
+            # Тест не прошёл — откат
+            rollback_args = ["ssh", remote_host,
+                           f"test -f {remote_base}/config.yaml.bak && cp -f {remote_base}/config.yaml.bak {remote_base}/config.yaml"]
+            subprocess.run(rollback_args, capture_output=True, text=True, check=False)
+            print(f"  ✗ {node_name}: тест конфига FAILED — откат из бэкапа, nebula НЕ перезапущен")
+            if test_result.stderr:
+                print(f"     STDERR: {test_result.stderr[:300]}")
+            failed += 1
+            continue
+
         # Перезапускаем nebula
-        if True:  # перезапуск всегда после деплоя
-            ssh_cmd = f'ssh "{remote_host}" "systemctl restart nebula && systemctl status nebula --no-pager | head -15"'
-            result = subprocess.run(
-                ssh_cmd, shell=True, capture_output=True, text=True, check=False
-            )
-            if result.returncode == 0:
-                print(f"  ↻ {node_name}: nebula перезапущен на {remote_host}")
-                # Выводим статус сервиса
-                for line in result.stdout.strip().split("\n")[-5:]:
-                    print(f"      {line}")
-                deployed += 1
-            else:
-                print(
-                    f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED: {result.stderr[:200]}"
-                )
-                failed += 1
+        restart_args = ["ssh", remote_host, "systemctl restart nebula && systemctl status nebula --no-pager | head -15"]
+        result = subprocess.run(
+            restart_args, capture_output=True, text=True, check=False
+        )
+        if result.returncode == 0:
+            print(f"  ↻ {node_name}: nebula перезапущен на {remote_host}")
+            # Выводим статус сервиса
+            for line in result.stdout.strip().split("\n")[-5:]:
+                print(f"      {line}")
+            deployed += 1
         else:
-            print(f"  ✗ {node_name}: нет файлов скопировано")
+            print(
+                f"  ✗ {node_name}: перезапуск nebula на {remote_host} FAILED: {result.stderr[:200]}"
+            )
             failed += 1
 
     if dry_run:
@@ -1143,7 +1224,7 @@ def main():
     network_dev = config.get("dev", "nebula1")
 
     # Выводим subnet из первого узла
-    import ipaddress
+
 
     all_nodes = {**config.get("lighthouse", {}), **config.get("hosts", {})}
     network_subnet = "192.168.10.0/24"  # fallback
@@ -1261,7 +1342,7 @@ def main():
                     timeout=10,
                 )
                 if result.returncode != 0:
-                    expired.append((crt_file.name, "ошибка чтения"))
+                    expired.append((crt_file.stem, crt_file, "ошибка чтения"))
                     continue
 
                 # Парсим JSON-вывод nebula-cert print
@@ -1275,23 +1356,23 @@ def main():
                 days_left = (expiry - now).days
 
                 if expiry < now:
-                    expired.append((crt_file.name, f"{days_left} дн."))
+                    expired.append((crt_file.stem, crt_file, f"{days_left} дн."))
                 elif days_left <= 30:
                     expiring_soon.append(
-                        (crt_file.name, f"{days_left} дн. ({expiry.date()})")
+                        (crt_file.stem, crt_file, f"{days_left} дн. ({expiry.date()})")
                     )
                 else:
-                    valid.append((crt_file.name, f"{days_left} дн."))
+                    valid.append((crt_file.stem, crt_file, f"{days_left} дн."))
             except subprocess.TimeoutExpired:
-                expired.append((crt_file.name, "таймаут"))
+                expired.append((crt_file.stem, crt_file, "таймаут"))
             except json.JSONDecodeError as e:
-                expired.append((crt_file.name, f"JSON parse error: {e}"))
+                expired.append((crt_file.stem, crt_file, f"JSON parse error: {e}"))
             except KeyError as e:
-                expired.append((crt_file.name, f"missing field: {e}"))
+                expired.append((crt_file.stem, crt_file, f"missing field: {e}"))
             except ValueError as e:
-                expired.append((crt_file.name, f"date parse error: {e}"))
+                expired.append((crt_file.stem, crt_file, f"date parse error: {e}"))
             except Exception as e:  # noqa: BLE001
-                expired.append((crt_file.name, str(e)))
+                expired.append((crt_file.stem, crt_file, str(e)))
 
         # Таблица
         print("\n=== Аудит сертификатов ===")
@@ -1320,12 +1401,12 @@ def main():
             # Если --renew-expiring — перевыпускаем вместо выхода
             if args.renew_expiring:
                 renew_count = 0
-                for name, days in expiring_soon + expired:
-                    # Ищем файл в output/
+                for node_name, _, days in expiring_soon + expired:
+                    # Ищем файл в output/ по stem имени узла
                     for crt_file in sorted(output_dir.glob("**/*.crt")):
                         if crt_file.parent.name == "ca":
                             continue
-                        if name in crt_file.name:
+                        if node_name == crt_file.stem:
                             # Удаляем старый сертификат и ключ
                             node_dir = crt_file.parent
                             cert_base = crt_file.stem
@@ -1334,7 +1415,7 @@ def main():
                             old_crt.unlink()
                             if old_key.exists():
                                 old_key.unlink()
-                            print(f"\n  🔄 Перевыпуск: {name} ({days})")
+                            print(f"\n  🔄 Перевыпуск: {node_name} ({days})")
 
                             # Перезапускаем генерацию нового сертификата
                             all_nodes = {}
@@ -1343,18 +1424,18 @@ def main():
                             for host_name, host_data in hosts.items():
                                 all_nodes[host_name] = host_data
 
-                            if name not in all_nodes:
+                            if node_name not in all_nodes:
                                 print(
-                                    f"    ✗ Узел '{name}' не найден в конфиге — пропускаю"
+                                    f"    ✗ Узел '{node_name}' не найден в конфиге — пропускаю"
                                 )
                                 continue
 
-                            node_data = all_nodes[name]
+                            node_data = all_nodes[node_name]
                             ca_dir_renew = OUTPUT_DIR / "ca"
                             in_pub_val = config.get("in_pub", "") or None
 
                             success, _ = generate_node_certificate(
-                                name,
+                                node_name,
                                 node_data,
                                 ca_dir_renew,
                                 nebula_cert_path,

@@ -4,7 +4,7 @@
 
 import re
 from dataclasses import dataclass, field
-from ipaddress import IPv4Address, IPv4Network, IPv6Network
+from ipaddress import IPv4Address, IPv4Network, IPv6Network, ip_address
 
 
 def _validate_fingerprint(fp: str) -> bool:
@@ -56,10 +56,10 @@ class HostConfig:
             raise ValueError(f"Порт должен быть 0-65535, получено: {p}")
         if self.public_ip:
             try:
-                IPv4Address(self.public_ip)
+                ip_address(self.public_ip)
             except ValueError:
                 raise ValueError(
-                    f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4"
+                    f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4 или fd00::1"
                 )
 
 
@@ -82,10 +82,10 @@ class LighthouseConfig:
             raise ValueError(f"Порт должен быть 0-65535, получено: {p}")
         if self.public_ip:
             try:
-                IPv4Address(self.public_ip)
+                ip_address(self.public_ip)
             except ValueError:
                 raise ValueError(
-                    f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4"
+                    f"Невалидный публичный IP: {self.public_ip}. Формат: 1.2.3.4 или fd00::1"
                 )
         if self.am_relay and not self.public_ip:
             raise ValueError("am_relay: true требует public_ip")
@@ -119,12 +119,32 @@ class NebulaConfig:
                         raise ValueError(
                             f"{label} '{name}': обязано иметь nebula_ip.ipv4 или nebula_ip.ipv6"
                         )
-        # дубликаты relay
+        # валидация relay_servers
         seen = set()
         for ip in self.relay_servers:
             if ip in seen:
                 raise ValueError(f"Дублирующийся relay_server: {ip}")
+            # Проверяем что это валидный IP
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                raise ValueError(
+                    f"Невалидный relay_server IP: {ip}. Формат: 192.168.10.1 или fd00::1"
+                )
             seen.add(ip)
+                # валидация ssh_target
+        for label, nodes in [("lighthouse", self.lighthouse), ("host", self.hosts)]:
+            for name, data in nodes.items():
+                if isinstance(data, dict):
+                    st = data.get("ssh_target", "")
+                    if st:
+                        # Формат: user@host:/abs/path
+                        import re as _re
+                        if not _re.match(r'^[a-zA-Z0-9_]+@[a-zA-Z0-9._-]+:/[a-zA-Z0-9/_-]+$', st):
+                            raise ValueError(
+                                f"{label} '{name}': неверный формат ssh_target: {st}. "
+                                f"Формат: user@host:/abs/path"
+                            )
         # валидация blocklist (SHA-256 отпечатки)
         bl = self.blocklist if self.blocklist else []
         for fp in bl:
