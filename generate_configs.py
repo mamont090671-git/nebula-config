@@ -808,7 +808,7 @@ def deploy_binaries(ssh_target, remote_path):
         )
         current = vr.stdout.strip().split()[0] if vr.stdout.strip() else "unknown"
         if current == version:
-            return True, f"Небуда {current} уже установлена"
+            return True, f"Nebula {current} уже установлена"
 
     # Скачиваем и устанавливаем
     archive = f"nebula-{version}-linux-{arch}.tar.gz"
