@@ -1476,21 +1476,22 @@ def main():
             # Если --renew-expiring — перевыпускаем вместо выхода
             if args.renew_expiring:
                 renew_count = 0
-                for node_name, _, days in expiring_soon + expired:
-                    # Ищем файл в output/ по stem имени узла
+                for cert_name, _, days in expiring_soon + expired:
+                    # Ищем файл в output/ по имени сертификата
                     for crt_file in sorted(output_dir.glob("**/*.crt")):
                         if crt_file.parent.name == "ca":
                             continue
-                        if node_name == crt_file.stem:
+                        if cert_name == crt_file.stem:
                             # Удаляем старый сертификат и ключ
-                            node_dir = crt_file.parent
+                            node_name = crt_file.parent.name  # ключ в YAML
                             cert_base = crt_file.stem
+                            node_dir = crt_file.parent
                             old_crt = crt_file
                             old_key = node_dir / f"{cert_base}.key"
                             old_crt.unlink()
                             if old_key.exists():
                                 old_key.unlink()
-                            print(f"\n  🔄 Перевыпуск: {node_name} ({days})")
+                            print(f"\n  🔄 Перевыпуск: {cert_name} ({days})")
 
                             # Перезапускаем генерацию нового сертификата
                             all_nodes = {}
