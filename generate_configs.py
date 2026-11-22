@@ -34,7 +34,6 @@ def log_error(msg: str):
     print(f"✗ {msg}", file=sys.stderr)
 
 
-from validators import validate_config_safe
 
 SCRIPT_DIR = Path(__file__).parent
 MASTER_CONFIG = SCRIPT_DIR / "config-nebula.yaml"
@@ -1375,15 +1374,7 @@ def main():
         generate_ca(network_name, nebula_cert_path)
         auto_generate = True
 
-    # P2.1: Валидация конфига
-    is_valid, error = validate_config_safe(config)
-    if not is_valid:
-        print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
-        sys.exit(1)
-    else:
-        print("✓ Конфиг валиден")
-
-    # Проверка сертификатов
+    # Проверка сертификатов (до валидации — чтобы можно было проверить cert без рабочего конфига)
     if args.check_certs or args.renew_expiring:
         import datetime
         import json
