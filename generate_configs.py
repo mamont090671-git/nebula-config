@@ -695,9 +695,10 @@ def compute_file_hash(filepath):
 
 def detect_remote_arch(ssh_target):
     """Определяет архитекцию удалённой машины через SSH."""
-    cmd = f'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "{ssh_target}" "uname -m"'
+    args = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10",
+            ssh_target, "uname -m"]
     result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, check=False
+        args, capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
         return None
