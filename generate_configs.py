@@ -1332,7 +1332,10 @@ def main():
         print("⚠ CA-сертификат не найден.")
         if external_ca_key:
             print("  ⚠ external_ca_key задан, но ca.crt отсутствует в output/ca/")
-            print("  Положите соответствующий ca.crt в output/ca/ca.crt или удалите ca_key_path из конфига.", file=sys.stderr)
+            print(
+                "  Положите соответствующий ca.crt в output/ca/ca.crt или удалите ca_key_path из конфига.",
+                file=sys.stderr,
+            )
             sys.exit(1)
         else:
             print("  Генерируем CA...")
@@ -1499,7 +1502,14 @@ def main():
                             network_dev=network_dev,
                             network_subnet=network_subnet,
                         )
-                        write_config(lh_name, rendered, ca_crt_path, False, in_pub, external_ca_key=external_ca_key)
+                        write_config(
+                            lh_name,
+                            rendered,
+                            ca_crt_path,
+                            False,
+                            in_pub,
+                            external_ca_key=external_ca_key,
+                        )
                     for host_name in host_targets:
                         host_data = hosts[host_name]
                         rendered = render_config(
@@ -1514,7 +1524,14 @@ def main():
                             network_dev=network_dev,
                             network_subnet=network_subnet,
                         )
-                        write_config(host_name, rendered, ca_crt_path, False, in_pub, external_ca_key=external_ca_key)
+                        write_config(
+                            host_name,
+                            rendered,
+                            ca_crt_path,
+                            False,
+                            in_pub,
+                            external_ca_key=external_ca_key,
+                        )
                     print("  ✓ Конфиги обновлены")
                 else:
                     print(
