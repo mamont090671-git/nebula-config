@@ -227,9 +227,9 @@ def render_config(
         blocklist_lines = "  blocklist:\n"
         for fp in blocklist:
             blocklist_lines += f'    - "{fp}"\n'
-        result = result.replace("  # blocklist:", blocklist_lines.strip())
+        result = result.replace("  # blocklist:\n", blocklist_lines)
     else:
-        result = result.replace("  # blocklist:", "  # Нет отозванных сертификатов")
+        result = result.replace("  # blocklist:\n", "  # Нет отозванных сертификатов\n")
 
     return result
 
