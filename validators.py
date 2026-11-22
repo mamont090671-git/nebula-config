@@ -132,7 +132,7 @@ class NebulaConfig:
                     f"Невалидный relay_server IP: {ip}. Формат: 192.168.10.1 или fd00::1"
                 )
             seen.add(ip)
-                # валидация ssh_target
+            # валидация ssh_target
         for label, nodes in [("lighthouse", self.lighthouse), ("host", self.hosts)]:
             for name, data in nodes.items():
                 if isinstance(data, dict):
@@ -140,7 +140,10 @@ class NebulaConfig:
                     if st:
                         # Формат: user@host:/abs/path
                         import re as _re
-                        if not _re.match(r'^[a-zA-Z0-9_]+@[a-zA-Z0-9._-]+:/[a-zA-Z0-9/_-]+$', st):
+
+                        if not _re.match(
+                            r"^[a-zA-Z0-9_]+@[a-zA-Z0-9._-]+:/[a-zA-Z0-9/_-]+$", st
+                        ):
                             raise ValueError(
                                 f"{label} '{name}': неверный формат ssh_target: {st}. "
                                 f"Формат: user@host:/abs/path"

@@ -33,6 +33,7 @@ def log_error(msg: str):
     """Выводит ошибку в stderr."""
     print(f"✗ {msg}", file=sys.stderr)
 
+
 from validators import validate_config_safe
 
 SCRIPT_DIR = Path(__file__).parent
@@ -739,9 +740,23 @@ def get_latest_release():
     # Пробуем gh → curl
     # gh release list
     r = subprocess.run(
-        ["gh", "release", "list", "--repo", "slackhq/nebula", "--limit", "1",
-         "--json", "tagName", "--jq", ".[0].tagName"],
-        capture_output=True, text=True, timeout=15, check=False
+        [
+            "gh",
+            "release",
+            "list",
+            "--repo",
+            "slackhq/nebula",
+            "--limit",
+            "1",
+            "--json",
+            "tagName",
+            "--jq",
+            ".[0].tagName",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
     )
     if r.returncode == 0:
         lines = r.stdout.strip().split("\n")
@@ -751,10 +766,14 @@ def get_latest_release():
     # curl fallback
     r = subprocess.run(
         ["curl", "-sL", "https://api.github.com/repos/slackhq/nebula/releases/latest"],
-        capture_output=True, text=True, timeout=15, check=False
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
     )
     if r.returncode == 0:
         import json
+
         try:
             data = json.loads(r.stdout)
             tag = data.get("tag_name", "")
@@ -776,14 +795,28 @@ def deploy_binaries(ssh_target, remote_path):
         return False, "Не удалось получить версию релиза"
 
     # Проверяем есть ли бинарники
-    check_args = ["ssh", "-o", "StrictHostKeyChecking=no", ssh_target,
-                  f"test -f {remote_path}/nebula && test -f {remote_path}/nebula-cert"]
-    r = subprocess.run(check_args, capture_output=True, text=True, check=False, timeout=10)
+    check_args = [
+        "ssh",
+        "-o",
+        "StrictHostKeyChecking=no",
+        ssh_target,
+        f"test -f {remote_path}/nebula && test -f {remote_path}/nebula-cert",
+    ]
+    r = subprocess.run(
+        check_args, capture_output=True, text=True, check=False, timeout=10
+    )
     if r.returncode == 0:
         # Проверяем версию
-        ver_args = ["ssh", "-o", "StrictHostKeyChecking=no", ssh_target,
-                    f"{remote_path}/nebula-cert version 2>&1 || {remote_path}/nebula version 2>&1 || echo unknown"]
-        vr = subprocess.run(ver_args, capture_output=True, text=True, check=False, timeout=10)
+        ver_args = [
+            "ssh",
+            "-o",
+            "StrictHostKeyChecking=no",
+            ssh_target,
+            f"{remote_path}/nebula-cert version 2>&1 || {remote_path}/nebula version 2>&1 || echo unknown",
+        ]
+        vr = subprocess.run(
+            ver_args, capture_output=True, text=True, check=False, timeout=10
+        )
         current = vr.stdout.strip().split()[0] if vr.stdout.strip() else "unknown"
         if current == version:
             return True, f"Небуда {current} уже установлена"
@@ -824,12 +857,12 @@ def deploy_service(ssh_target, remote_path):
     template_path = SCRIPT_DIR / "templates" / "nebula.service"
     if not template_path.exists():
         return False, "Шаблон nebula.service не найден"
-    
+
     with open(template_path) as f:
         template = f.read()
-    
+
     service_content = template.replace("{{NEBULA_PATH}}", remote_path)
-    
+
     # Копируем шаблон на сервер и применяем
     script = f"""cat > /etc/systemd/system/nebula.service << 'EOF'
 {service_content}
@@ -842,13 +875,12 @@ systemctl enable nebula
         stdin=subprocess.PIPE,
         capture_output=True,
         text=True,
-        timeout=30
+        timeout=30,
     )
     _stdout, stderr = proc.communicate(script, timeout=30)
     if proc.returncode != 0:
         return False, f"Создание сервиса FAILED: {stderr[:300]}"
     return True, "Сервис создан из шаблона и включён"
-
 
 
 def deploy_configs(config, lighthouses, hosts, dry_run=False):
@@ -901,10 +933,17 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
 
         # Проверяем хэши на сервере одной SSH-командой
         if all_files:
-            files_arg = " ".join(shlex.quote(f"{remote_base}/{f.name}") for f in all_files)
+            files_arg = " ".join(
+                shlex.quote(f"{remote_base}/{f.name}") for f in all_files
+            )
             hash_cmd = f'ssh "{remote_host}" "sha256sum {files_arg}"'
             hash_result = subprocess.run(
-                hash_cmd, shell=True, capture_output=True, text=True, timeout=60, check=False
+                hash_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
             )
             if hash_result.returncode == 0:
                 remote_hashes = {}
@@ -968,45 +1007,75 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             print(f"  ⚙️  {node_name}: {service_result[1]}")
 
         # Локальная валидация config.yaml перед деплоем
-        nebula_test = next((Path(p).name for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts 
-                           for p2 in [Path("/usr/bin/nebula"), Path("/usr/local/bin/nebula"), Path("/bin/nebula"), Path("/usr/bin/nebula")]
-                           if (p2).exists()), None)
-        if nebula_test and not any((Path(p) / "nebula").exists() for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts):
+        nebula_test = next(
+            (
+                Path(p).name
+                for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts
+                for p2 in [
+                    Path("/usr/bin/nebula"),
+                    Path("/usr/local/bin/nebula"),
+                    Path("/bin/nebula"),
+                    Path("/usr/bin/nebula"),
+                ]
+                if (p2).exists()
+            ),
+            None,
+        )
+        if nebula_test and not any(
+            (Path(p) / "nebula").exists()
+            for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts
+        ):
             nebula_test = None
         # Проверяем nebula бинарник
         nebula_bin = None
-        for candidate in [Path("/usr/bin/nebula"), Path("/usr/local/bin/nebula"), Path("/bin/nebula"), 
-                          Path.home() / ".local/bin/nebula"]:
+        for candidate in [
+            Path("/usr/bin/nebula"),
+            Path("/usr/local/bin/nebula"),
+            Path("/bin/nebula"),
+            Path.home() / ".local/bin/nebula",
+        ]:
             if candidate.exists():
                 nebula_bin = str(candidate)
                 break
-        
+
         config_valid = True
         for item in all_files:
             if item.name == "config.yaml":
                 if nebula_bin:
                     test_r = subprocess.run(
                         [nebula_bin, "-test", "-config", str(item)],
-                        capture_output=True, text=True, timeout=30, check=False
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        check=False,
                     )
                     if test_r.returncode != 0:
-                        print(f"  ✗ {node_name}: config.yaml НЕ проходит nebula -test (локально)")
+                        print(
+                            f"  ✗ {node_name}: config.yaml НЕ проходит nebula -test (локально)"
+                        )
                         if test_r.stderr:
                             print(f"     STDERR: {test_r.stderr[:200]}")
                         config_valid = False
                         break
                 else:
-                    print(f"  ⚠ {node_name}: nebula не найден локально — пропускаю pre-deploy валидацию")
-        
+                    print(
+                        f"  ⚠ {node_name}: nebula не найден локально — пропускаю pre-deploy валидацию"
+                    )
+
         if not config_valid:
             print(f"  ✗ {node_name}: config.yaml невалиден, деплой отменён")
             failed += 1
             continue
 
         # Бэкап config.yaml на сервере ДО деплоя
-        backup_cmd = ["ssh", remote_host,
-                      f"cp -f {remote_base}/config.yaml {remote_base}/config.yaml.bak 2>/dev/null || true"]
-        subprocess.run(backup_cmd, capture_output=True, text=True, check=False, timeout=10)
+        backup_cmd = [
+            "ssh",
+            remote_host,
+            f"cp -f {remote_base}/config.yaml {remote_base}/config.yaml.bak 2>/dev/null || true",
+        ]
+        subprocess.run(
+            backup_cmd, capture_output=True, text=True, check=False, timeout=10
+        )
 
         # Деплоим конфиги
         files_copied = []
@@ -1023,23 +1092,36 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
                 print(f"  ✗ {node_name}: scp {item.name} → {remote_host} FAILED")
 
         # Тест конфига перед перезапуском (backup + rollback)
-        test_args = ["ssh", remote_host, f"{remote_base}/nebula -test -config {remote_base}/config.yaml"]
+        test_args = [
+            "ssh",
+            remote_host,
+            f"{remote_base}/nebula -test -config {remote_base}/config.yaml",
+        ]
         test_result = subprocess.run(
             test_args, capture_output=True, text=True, timeout=30, check=False
         )
         if test_result.returncode != 0:
             # Тест не прошёл — откат
-            rollback_args = ["ssh", remote_host,
-                           f"test -f {remote_base}/config.yaml.bak && cp -f {remote_base}/config.yaml.bak {remote_base}/config.yaml"]
+            rollback_args = [
+                "ssh",
+                remote_host,
+                f"test -f {remote_base}/config.yaml.bak && cp -f {remote_base}/config.yaml.bak {remote_base}/config.yaml",
+            ]
             subprocess.run(rollback_args, capture_output=True, text=True, check=False)
-            print(f"  ✗ {node_name}: тест конфига FAILED — откат из бэкапа, nebula НЕ перезапущен")
+            print(
+                f"  ✗ {node_name}: тест конфига FAILED — откат из бэкапа, nebula НЕ перезапущен"
+            )
             if test_result.stderr:
                 print(f"     STDERR: {test_result.stderr[:300]}")
             failed += 1
             continue
 
         # Перезапускаем nebula
-        restart_args = ["ssh", remote_host, "systemctl restart nebula && systemctl status nebula --no-pager | head -15"]
+        restart_args = [
+            "ssh",
+            remote_host,
+            "systemctl restart nebula && systemctl status nebula --no-pager | head -15",
+        ]
         result = subprocess.run(
             restart_args, capture_output=True, text=True, check=False
         )
@@ -1218,7 +1300,6 @@ def main():
     network_dev = config.get("dev", "nebula1")
 
     # Выводим subnet из первого узла
-
 
     all_nodes = {**config.get("lighthouse", {}), **config.get("hosts", {})}
     network_subnet = "192.168.10.0/24"  # fallback
