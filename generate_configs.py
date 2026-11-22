@@ -1493,7 +1493,7 @@ def main():
                             network_dev=network_dev,
                             network_subnet=network_subnet,
                         )
-                        write_config(lh_name, rendered, ca_crt_path, False, in_pub)
+                        write_config(lh_name, rendered, ca_crt_path, False, in_pub, external_ca_key=external_ca_key)
                     for host_name in host_targets:
                         host_data = hosts[host_name]
                         rendered = render_config(
@@ -1508,7 +1508,7 @@ def main():
                             network_dev=network_dev,
                             network_subnet=network_subnet,
                         )
-                        write_config(host_name, rendered, ca_crt_path, False, in_pub)
+                        write_config(host_name, rendered, ca_crt_path, False, in_pub, external_ca_key=external_ca_key)
                     print("  ✓ Конфиги обновлены")
                 else:
                     print(
@@ -1557,6 +1557,7 @@ def main():
                 ca_crt_path,
                 generate_cert=auto_generate,
                 in_pub=in_pub,
+                external_ca_key=external_ca_key,
             )
 
     # Генерация узлов
@@ -1582,6 +1583,7 @@ def main():
                 ca_crt_path,
                 generate_cert=auto_generate,
                 in_pub=in_pub,
+                external_ca_key=external_ca_key,
             )
 
     # Верификация сгенерированных конфигов
