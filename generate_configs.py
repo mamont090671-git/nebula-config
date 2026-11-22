@@ -684,17 +684,6 @@ def compute_file_hash(filepath):
     return h.hexdigest()
 
 
-def compute_remote_file_hash(ssh_target, remote_path):
-    """Вычисляет sha256 хэш файла на удалённом сервере через md5sum/sha256sum."""
-    cmd = f'scp -q "{ssh_target}:{remote_path}" /dev/stdout | sha256sum'
-    result = subprocess.run(
-        cmd, shell=True, capture_output=True, text=True, check=False
-    )
-    if result.returncode == 0:
-        return result.stdout.split()[0]
-    return None
-
-
 def detect_remote_arch(ssh_target):
     """Определяет архитекцию удалённой машины через SSH."""
     cmd = f'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "{ssh_target}" "uname -m"'
@@ -1004,26 +993,6 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
         else:
             print(f"  ⚙️  {node_name}: {service_result[1]}")
 
-        # Локальная валидация config.yaml перед деплоем
-        nebula_test = next(
-            (
-                Path(p).name
-                for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts
-                for p2 in [
-                    Path("/usr/bin/nebula"),
-                    Path("/usr/local/bin/nebula"),
-                    Path("/bin/nebula"),
-                    Path("/usr/bin/nebula"),
-                ]
-                if (p2).exists()
-            ),
-            None,
-        )
-        if nebula_test and not any(
-            (Path(p) / "nebula").exists()
-            for p in Path(os.environ.get("PATH", "/usr/bin:/bin")).parts
-        ):
-            nebula_test = None
         # Проверяем nebula бинарник
         nebula_bin = None
         for candidate in [
@@ -1274,25 +1243,15 @@ def main():
         generate_ca(network_name, nebula_cert_path)
         sys.exit(0)
 
-    # Загрузка конфига и in_pub
+    # Загрузка конфига и базовых переменных
     config = load_config()
     in_pub = config.get("in_pub", "") or None
-
-    # Генерация сертификатов для всех узлов
-    if args.generate_host_certs:
-        ca_dir = OUTPUT_DIR / "ca"
-        generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=in_pub)
-        sys.exit(0)
-
-    # Загрузка конфига и базовых переменных (до --check-certs для --renew-expiring)
-    config = load_config()
     print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
 
     lighthouses = config.get("lighthouse", {})
     hosts = config.get("hosts", {})
     relay_servers = config.get("relay_servers", [])
     ca_pem = config.get("ca_pem", "") or None
-    in_pub = config.get("in_pub", "") or None
     ca_key_path = config.get("ca_key_path", "") or None
     blocklist = config.get("blocklist", []) or None
     network_dev = config.get("dev", "nebula1")
