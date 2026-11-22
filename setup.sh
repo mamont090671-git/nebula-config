@@ -11,10 +11,21 @@ echo "=== Установка nebula-config ==="
 ARCH=$(dpkg --print-architecture 2>/dev/null || uname -m)
 case "$ARCH" in
     x86_64|amd64)  NEBULA_ARCH="linux-amd64" ;;
+    i386|i686)     NEBULA_ARCH="linux-386" ;;
     aarch64|arm64) NEBULA_ARCH="linux-arm64" ;;
+    armv5*)        NEBULA_ARCH="linux-arm-5" ;;
+    armv6*)        NEBULA_ARCH="linux-arm-6" ;;
     armv7l|armhf)  NEBULA_ARCH="linux-arm-7" ;;
+    loongarch64)   NEBULA_ARCH="linux-loong64" ;;
+    mips|mipsb)    NEBULA_ARCH="linux-mips" ;;
+    mipsel|mipsle) NEBULA_ARCH="linux-mipsle" ;;
+    mips64|mips64b) NEBULA_ARCH="linux-mips64" ;;
+    mips64el|mips64le) NEBULA_ARCH="linux-mips64le" ;;
+    ppc64le|ppc64) NEBULA_ARCH="linux-ppc64le" ;;
+    riscv64)       NEBULA_ARCH="linux-riscv64" ;;
     *)
         echo "❌ Неизвестная архитектура: $ARCH"
+        echo "Поддерживаемые: amd64, 386, arm64, arm-5, arm-6, arm-7, loong64, mips*, ppc64le, riscv64"
         exit 1
         ;;
 esac

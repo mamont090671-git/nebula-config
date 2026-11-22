@@ -695,15 +695,29 @@ def detect_remote_arch(ssh_target):
     arch = result.stdout.strip()
     if arch == "x86_64":
         return "amd64"
+    elif arch in ("i386", "i686"):
+        return "386"
     elif arch in ("aarch64", "arm64"):
         return "arm64"
+    elif arch == "armv5l":
+        return "arm-5"
+    elif arch == "armv6l":
+        return "arm-6"
     elif arch in ("armv7l", "armhf"):
-        return "arm"
+        return "arm-7"
     elif arch == "riscv64":
         return "riscv64"
-    elif arch == "s390x":
-        return "s390x"
-    elif arch == "ppc64le":
+    elif arch == "loongarch64":
+        return "loong64"
+    elif arch in ("mips", "mipsb"):
+        return "mips"
+    elif arch in ("mipsel", "mipsle"):
+        return "mipsle"
+    elif arch in ("mips64", "mips64b"):
+        return "mips64"
+    elif arch in ("mips64el", "mips64le"):
+        return "mips64le"
+    elif arch in ("ppc64le", "ppc64"):
         return "ppc64le"
     return None
 
