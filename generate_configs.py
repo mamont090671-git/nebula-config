@@ -34,7 +34,6 @@ def log_error(msg: str):
     print(f"✗ {msg}", file=sys.stderr)
 
 
-
 SCRIPT_DIR = Path(__file__).parent
 MASTER_CONFIG = SCRIPT_DIR / "config-nebula.yaml"
 TEMPLATE = SCRIPT_DIR / "templates/config.yaml"
