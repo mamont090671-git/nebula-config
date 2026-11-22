@@ -1553,7 +1553,7 @@ def main():
                             rendered,
                             ca_crt_path,
                             False,
-                            resolve_in_pub(in_pub_cfg, lh_name),
+                            resolve_in_pub(in_pub_cfg, host_name),
                             external_ca_key=external_ca_key,
                         )
                     print("  ✓ Конфиги обновлены")
