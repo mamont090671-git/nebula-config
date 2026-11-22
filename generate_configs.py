@@ -197,7 +197,7 @@ def render_config(
         if not is_relay
         else "    # Нет relay-серверов"
     )
-    listen_host = "[::]" if not is_lighthouse else "::"
+    listen_host = "[::]"
     listen_port = str(node_data.get("port", "4242"))
 
     # Inline CA
