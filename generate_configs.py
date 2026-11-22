@@ -1014,6 +1014,11 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             failed += 1
             continue
 
+        # Бэкап config.yaml на сервере ДО деплоя
+        backup_cmd = ["ssh", remote_host,
+                      f"cp -f {remote_base}/config.yaml {remote_base}/config.yaml.bak 2>/dev/null || true"]
+        subprocess.run(backup_cmd, capture_output=True, text=True, check=False, timeout=10)
+
         # Деплоим конфиги
         files_copied = []
         for item in all_files:

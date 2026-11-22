@@ -9,18 +9,34 @@ NEBULA_HOME="/etc/nebula"
 
 echo "=== Nebula VPN Deploy ==="
 
+# Проверка: если NODE_DIR == /etc/nebula, бэкап не нужен
+SAME_PATH=false
+if [ "$(realpath "$NODE_DIR" 2>/dev/null)" = "$(realpath "$NEBULA_HOME" 2>/dev/null)" ]; then
+    SAME_PATH=true
+    echo "⚠ NODE_DIR совпадает с NEBULA_HOME — пропускаем копирование"
+fi
+
 # 1. Создаём директорию для nebula
 mkdir -p /etc/nebula
 
-# 2. Копируем конфиг и сертификаты
-cp -f "$NODE_DIR/config.yaml" /etc/nebula/config.yaml
-cp -f "$NODE_DIR/ca.crt" /etc/nebula/ca.crt
-cp -f "$NODE_DIR"/*.crt /etc/nebula/
-cp -f "$NODE_DIR"/*.key /etc/nebula/
+# 2. Бэкап текущего конфига ДО любых изменений (только если пути разные)
+if [ "$SAME_PATH" = false ] && [ -f /etc/nebula/config.yaml ]; then
+    cp -f /etc/nebula/config.yaml /etc/nebula/config.yaml.bak
+    echo "✓ Бэкап: config.yaml.bak"
+fi
 
-echo "✓ Конфиг и сертификаты скопированы"
+# 3. Копируем конфиг и сертификаты (только если пути разные)
+if [ "$SAME_PATH" = false ]; then
+    cp -f "$NODE_DIR/config.yaml" /etc/nebula/config.yaml
+    cp -f "$NODE_DIR/ca.crt" /etc/nebula/ca.crt
+    cp -f "$NODE_DIR"/*.crt /etc/nebula/
+    cp -f "$NODE_DIR"/*.key /etc/nebula/
+    echo "✓ Конфиг и сертификаты скопированы"
+else
+    echo "⚠ Пропуск копирования (файлы уже в /etc/nebula/)"
+fi
 
-# 3. Скачиваем nebula если не установлен
+# 4. Скачиваем nebula если не установлен
 if ! command -v "$NEBULA_HOME/nebula" &>/dev/null; then
     echo "Проверка бинарника nebula..."
     if command -v "$NEBULA_HOME/nebula" &>/dev/null; then
@@ -67,7 +83,7 @@ else
     echo "✓ nebula уже установлен: $NEBULA_HOME/nebula"
 fi
 
-# 4. Создаём systemd service
+# 5. Создаём systemd service
 cat > /etc/systemd/system/nebula.service << 'SERVICE'
 [Unit]
 Description=Nebula VPN
@@ -90,12 +106,6 @@ PrivateTmp=yes
 [Install]
 WantedBy=multi-user.target
 SERVICE
-
-# 5. Бэкап текущего конфига
-if [ -f /etc/nebula/config.yaml ]; then
-    cp -f /etc/nebula/config.yaml /etc/nebula/config.yaml.bak
-    echo "✓ Бэкап: config.yaml.bak"
-fi
 
 # 6. Тест конфига перед запуском
 echo "Тест конфигурации..."
