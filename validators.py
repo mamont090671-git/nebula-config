@@ -126,7 +126,7 @@ class NebulaConfig:
                 raise ValueError(f"Дублирующийся relay_server: {ip}")
             # Проверяем что это валидный IP
             try:
-                ipaddress.ip_address(ip)
+                ip_address(ip)
             except ValueError:
                 raise ValueError(
                     f"Невалидный relay_server IP: {ip}. Формат: 192.168.10.1 или fd00::1"
