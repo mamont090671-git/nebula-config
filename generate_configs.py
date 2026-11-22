@@ -1242,7 +1242,7 @@ def main():
             print("Нет .crt файлов в output/")
             sys.exit(0)
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         expired = []
         expiring_soon = []
         valid = []
@@ -1270,7 +1270,7 @@ def main():
                 expiry = datetime.datetime.fromisoformat(not_after)
                 # Приводим к UTC для сравнения
                 if expiry.tzinfo is not None:
-                    expiry = expiry.astimezone(datetime.timezone.utc)
+                    expiry = expiry.astimezone(datetime.UTC)
 
                 days_left = (expiry - now).days
 
