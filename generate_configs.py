@@ -817,32 +817,17 @@ SCRIPT"""
 
 
 def deploy_service(ssh_target, remote_path):
-    """Создаёт и включает systemd-сервис Nebula."""
-    service_content = f"""[Unit]
-Description=Nebula overlay networking
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=notify
-ExecStart={remote_path}/nebula -config {remote_path}/config.yaml
-ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
-RestartSec=5
-
-# Hardening
-User=root
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
-ProtectSystem=strict
-ProtectHome=true
-NoNewPrivileges=true
-ReadWritePaths={remote_path}
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-"""
-
+    """Создаёт systemd-сервис из единого шаблона."""
+    template_path = SCRIPT_DIR / "templates" / "nebula.service"
+    if not template_path.exists():
+        return False, "Шаблон nebula.service не найден"
+    
+    with open(template_path) as f:
+        template = f.read()
+    
+    service_content = template.replace("{{NEBULA_PATH}}", remote_path)
+    
+    # Копируем шаблон на сервер и применяем
     script = f"""cat > /etc/systemd/system/nebula.service << 'EOF'
 {service_content}
 EOF
@@ -859,7 +844,8 @@ systemctl enable nebula
     stdout, stderr = proc.communicate(script, timeout=30)
     if proc.returncode != 0:
         return False, f"Создание сервиса FAILED: {stderr[:300]}"
-    return True, "Сервис создан и включён"
+    return True, "Сервис создан из шаблона и включён"
+
 
 
 def deploy_configs(config, lighthouses, hosts, dry_run=False):
