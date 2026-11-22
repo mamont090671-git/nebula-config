@@ -881,22 +881,21 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
         has_critical = any(f.name in critical_files for f in all_files)
 
         # Проверяем хэши на сервере
-        needs_deploy = has_critical
+        needs_deploy = False
         changed_files = []
-        if has_critical:
-            for item in all_files:
-                remote_path = f"{remote_base}/{item.name}"
-                local_hash = compute_file_hash(item)
-                remote_hash = compute_remote_file_hash(ssh_target, remote_path)
-                if remote_hash is None:
-                    # Файл не существует на сервере — нужно копировать
-                    needs_deploy = True
-                    changed_files.append(f"[НОВЫЙ] {item.name}")
-                    break
-                if local_hash != remote_hash:
-                    needs_deploy = True
-                    changed_files.append(f"[ИЗМЕНЁН] {item.name}")
-                    break
+        for item in all_files:
+            remote_path = f"{remote_base}/{item.name}"
+            local_hash = compute_file_hash(item)
+            remote_hash = compute_remote_file_hash(ssh_target, remote_path)
+            if remote_hash is None:
+                # Файл не существует на сервере — нужно копировать
+                needs_deploy = True
+                changed_files.append(f"[НОВЫЙ] {item.name}")
+                break
+            if local_hash != remote_hash:
+                needs_deploy = True
+                changed_files.append(f"[ИЗМЕНЁН] {item.name}")
+                break
 
         if not needs_deploy:
             print(f"  = {node_name}: всё unchanged, пропускаю")
