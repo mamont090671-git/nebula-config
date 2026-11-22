@@ -1230,6 +1230,7 @@ def main():
     # Проверка сертификатов
     if args.check_certs:
         import datetime
+        import json
 
         output_dir = OUTPUT_DIR
         if not output_dir.exists():
@@ -1241,7 +1242,7 @@ def main():
             print("Нет .crt файлов в output/")
             sys.exit(0)
 
-        now = datetime.datetime.now(datetime.UTC)
+        now = datetime.datetime.now(datetime.timezone.utc)
         expired = []
         expiring_soon = []
         valid = []
@@ -1251,9 +1252,9 @@ def main():
                 continue
 
             try:
-                cert_path = str(nebula_cert_path) if nebula_cert_path else "nebula-cert"
+                cert_cmd = str(nebula_cert_path) if nebula_cert_path else "nebula-cert"
                 result = subprocess.run(
-                    [cert_path, "print", "-in", str(crt_file)],
+                    [cert_cmd, "print", "-path", str(crt_file)],
                     check=False,
                     capture_output=True,
                     text=True,
@@ -1263,44 +1264,32 @@ def main():
                     expired.append((crt_file.name, "ошибка чтения"))
                     continue
 
-                # Парсим NotAfter из вывода nebula-cert print
-                for line in result.stdout.split("\n"):
-                    if "Not After" in line or "notAfter" in line:
-                        date_str = line.split(": ", 1)[1].strip()
-                        # Формат: Oct 29 15:18:25 2026 GMT
-                        try:
-                            expiry = datetime.datetime.strptime(
-                                date_str, "%b %d %H:%M:%S %Y %Z"
-                            )
-                            expiry = expiry.replace(tzinfo=datetime.UTC)
-                        except ValueError:
-                            try:
-                                expiry = datetime.datetime.strptime(
-                                    date_str, "%Y-%m-%dT%H:%M:%SZ"
-                                )
-                                expiry = expiry.replace(tzinfo=datetime.UTC)
-                            except ValueError:
-                                expired.append(
-                                    (
-                                        crt_file.name,
-                                        f"не удалось распарсить: {date_str}",
-                                    )
-                                )
-                                break
+                # Парсим JSON-вывод nebula-cert print
+                data = json.loads(result.stdout)
+                not_after = data["details"]["notAfter"]
+                expiry = datetime.datetime.fromisoformat(not_after)
+                # Приводим к UTC для сравнения
+                if expiry.tzinfo is not None:
+                    expiry = expiry.astimezone(datetime.timezone.utc)
 
-                        days_left = (expiry - now).days
+                days_left = (expiry - now).days
 
-                        if expiry < now:
-                            expired.append((crt_file.name, f"{days_left} дн."))
-                        elif days_left <= 30:
-                            expiring_soon.append(
-                                (crt_file.name, f"{days_left} дн. ({expiry.date()})")
-                            )
-                        else:
-                            valid.append((crt_file.name, f"{days_left} дн."))
-                        break
+                if expiry < now:
+                    expired.append((crt_file.name, f"{days_left} дн."))
+                elif days_left <= 30:
+                    expiring_soon.append(
+                        (crt_file.name, f"{days_left} дн. ({expiry.date()})")
+                    )
+                else:
+                    valid.append((crt_file.name, f"{days_left} дн."))
             except subprocess.TimeoutExpired:
                 expired.append((crt_file.name, "таймаут"))
+            except json.JSONDecodeError as e:
+                expired.append((crt_file.name, f"JSON parse error: {e}"))
+            except KeyError as e:
+                expired.append((crt_file.name, f"missing field: {e}"))
+            except ValueError as e:
+                expired.append((crt_file.name, f"date parse error: {e}"))
             except Exception as e:  # noqa: BLE001
                 expired.append((crt_file.name, str(e)))
 
