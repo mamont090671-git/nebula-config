@@ -1384,7 +1384,7 @@ def main():
         print("✓ Конфиг валиден")
 
     # Проверка сертификатов
-    if args.check_certs:
+    if args.check_certs or args.renew_expiring:
         import datetime
         import json
 
