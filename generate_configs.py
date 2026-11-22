@@ -1329,10 +1329,16 @@ def main():
     if ca_crt_path.exists():
         print(f"✓ CA-сертификат найден: {ca_crt_path}")
     else:
-        print("⚠ CA-сертификат не найден. Генерируем CA...")
-        network_name = config.get("net-name", "nebula-net")
-        generate_ca(network_name, nebula_cert_path)
-        auto_generate = True
+        print("⚠ CA-сертификат не найден.")
+        if external_ca_key:
+            print("  ⚠ external_ca_key задан, но ca.crt отсутствует в output/ca/")
+            print("  Положите соответствующий ca.crt в output/ca/ca.crt или удалите ca_key_path из конфига.", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print("  Генерируем CA...")
+            network_name = config.get("net-name", "nebula-net")
+            generate_ca(network_name, nebula_cert_path)
+            auto_generate = True
 
     # Проверка сертификатов (до валидации — чтобы можно было проверить cert без рабочего конфига)
     if args.check_certs or args.renew_expiring:
