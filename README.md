@@ -61,6 +61,23 @@ python3 generate_configs.py --only-hosts --host A B
 python3 generate_configs.py --only-lights --light A B
 ```
 
+### Дополнительные флаги
+
+```bash
+# Указать путь к nebula-cert (если не в PATH)
+python3 generate_configs.py --cert-path /path/to/nebula-cert
+
+# Скрытые флаги (из help):
+# --only-hosts — только узлы, без маяков
+# --only-lights — только маяки, без узлов
+# --generate-ca — сгенерировать CA-сертификат
+# --generate-host-certs — сгенерировать сертификаты всех узлов
+# --check-certs — проверить срок действия сертификатов
+# --renew-expiring — автоматический перевыпуск сертификатов < 30 дней
+# --push — деплой на удалённые сервера по ssh_target
+# --dry-run — предпросмотр --push без фактического деплоя
+```
+
 ### Деплой на удалённые сервера
 
 ```bash

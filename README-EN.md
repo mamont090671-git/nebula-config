@@ -58,7 +58,24 @@ Finds certificates expiring within 30 days, deletes old `.crt`/`.key`, regenerat
 ```bash
 python3 generate_configs.py --host server-1
 python3 generate_configs.py --only-hosts --host A B
-python3 generate_configs.py --only-lights --light X Y
+python3 generate_configs.py --only-lights --light A B
+```
+
+### Additional Flags
+
+```bash
+# Specify path to nebula-cert (if not in PATH)
+python3 generate_configs.py --cert-path /path/to/nebula-cert
+
+# Other flags (from --help):
+# --only-hosts — only hosts, no lighthouses
+# --only-lights — only lighthouses, no hosts
+# --generate-ca — generate CA certificate
+# --generate-host-certs — generate all host certificates
+# --check-certs — check certificate expiry
+# --renew-expiring — auto-renew certificates expiring < 30 days
+# --push — deploy to remote servers via ssh_target
+# --dry-run — preview --push changes without deploying
 ```
 
 ### Deploy to Remote Servers
