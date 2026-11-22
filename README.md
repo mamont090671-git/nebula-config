@@ -61,21 +61,44 @@ python3 generate_configs.py --only-hosts --host A B
 python3 generate_configs.py --only-lights --light A B
 ```
 
-### Дополнительные флаги
+### Все флаги CLI
 
 ```bash
+# Генерировать все узлы и все маяки (явный аналог запуска без флагов)
+python3 generate_configs.py --all
+
+# Только указанные узлы + все маяки
+python3 generate_configs.py --host server-1 server-2
+
+# Все узлы + указанные маяки
+python3 generate_configs.py --light lh-1 lh-2
+
+# Только узлы (без маяков)
+python3 generate_configs.py --only-hosts --host A B
+
+# Только маяки (без узлов)
+python3 generate_configs.py --only-lights --light X Y
+
+# Сгенерировать CA-сертификат
+python3 generate_configs.py --generate-ca
+
+# Сгенерировать сертификаты всех узлов
+python3 generate_configs.py --generate-host-certs
+
+# Проверить срок действия сертификатов
+python3 generate_configs.py --check-certs
+
+# Автоматический перевыпуск сертификатов < 30 дней
+python3 generate_configs.py --renew-expiring
+
+# Деплой на удалённые сервера по ssh_target
+python3 generate_configs.py --push
+
+# Предпросмотр --push без фактического деплоя
+python3 generate_configs.py --push --dry-run
+
 # Указать путь к nebula-cert (если не в PATH)
 python3 generate_configs.py --cert-path /path/to/nebula-cert
-
-# Скрытые флаги (из help):
-# --only-hosts — только узлы, без маяков
-# --only-lights — только маяки, без узлов
-# --generate-ca — сгенерировать CA-сертификат
-# --generate-host-certs — сгенерировать сертификаты всех узлов
-# --check-certs — проверить срок действия сертификатов
-# --renew-expiring — автоматический перевыпуск сертификатов < 30 дней
-# --push — деплой на удалённые сервера по ssh_target
-# --dry-run — предпросмотр --push без фактического деплоя
 ```
 
 ### Деплой на удалённые сервера

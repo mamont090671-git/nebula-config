@@ -61,21 +61,44 @@ python3 generate_configs.py --only-hosts --host A B
 python3 generate_configs.py --only-lights --light A B
 ```
 
-### Additional Flags
+### All CLI Flags
 
 ```bash
+# Generate all hosts and all lighthouses (explicit version of running without flags)
+python3 generate_configs.py --all
+
+# Only specified hosts + all lighthouses
+python3 generate_configs.py --host server-1 server-2
+
+# All hosts + specified lighthouses
+python3 generate_configs.py --light lh-1 lh-2
+
+# Only hosts (no lighthouses)
+python3 generate_configs.py --only-hosts --host A B
+
+# Only lighthouses (no hosts)
+python3 generate_configs.py --only-lights --light X Y
+
+# Generate CA certificate
+python3 generate_configs.py --generate-ca
+
+# Generate certificates for all hosts
+python3 generate_configs.py --generate-host-certs
+
+# Check certificate expiry
+python3 generate_configs.py --check-certs
+
+# Auto-renew certificates expiring within 30 days
+python3 generate_configs.py --renew-expiring
+
+# Deploy to remote servers via ssh_target
+python3 generate_configs.py --push
+
+# Preview --push changes without deploying
+python3 generate_configs.py --push --dry-run
+
 # Specify path to nebula-cert (if not in PATH)
 python3 generate_configs.py --cert-path /path/to/nebula-cert
-
-# Other flags (from --help):
-# --only-hosts — only hosts, no lighthouses
-# --only-lights — only lighthouses, no hosts
-# --generate-ca — generate CA certificate
-# --generate-host-certs — generate all host certificates
-# --check-certs — check certificate expiry
-# --renew-expiring — auto-renew certificates expiring < 30 days
-# --push — deploy to remote servers via ssh_target
-# --dry-run — preview --push changes without deploying
 ```
 
 ### Deploy to Remote Servers
