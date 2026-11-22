@@ -23,10 +23,11 @@ import shlex
 import shutil
 import subprocess
 import sys
-from pathlib import Path
 from functools import lru_cache
+from pathlib import Path
 
 import yaml
+
 
 def log_error(msg: str):
     """Выводит ошибку в stderr."""
@@ -41,7 +42,7 @@ FOR_ALL_DIR = SCRIPT_DIR / "for-all"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 
 
-@lru_cache()
+@lru_cache
 def load_config():
     if not MASTER_CONFIG.exists():
         print(f"Ошибка: Конфигурация не найдена: {MASTER_CONFIG}", file=sys.stderr)
@@ -753,7 +754,6 @@ def get_latest_release():
         capture_output=True, text=True, timeout=15, check=False
     )
     if r.returncode == 0:
-        import re
         import json
         try:
             data = json.loads(r.stdout)
@@ -844,7 +844,7 @@ systemctl enable nebula
         text=True,
         timeout=30
     )
-    stdout, stderr = proc.communicate(script, timeout=30)
+    _stdout, stderr = proc.communicate(script, timeout=30)
     if proc.returncode != 0:
         return False, f"Создание сервиса FAILED: {stderr[:300]}"
     return True, "Сервис создан из шаблона и включён"

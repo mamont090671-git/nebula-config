@@ -4,7 +4,7 @@
 
 import re
 from dataclasses import dataclass, field
-from ipaddress import IPv4Address, IPv4Network, IPv6Network, ip_address
+from ipaddress import IPv4Network, IPv6Network, ip_address
 
 
 def _validate_fingerprint(fp: str) -> bool:
