@@ -98,7 +98,7 @@ class NebulaConfig:
     net_name: str
     relay_servers: list = field(default_factory=list)
     ca_pem: str = ""
-    in_pub: str = ""
+    in_pub: str | dict | None = None
     ca_key_path: str = ""
     blocklist: list = field(default_factory=list)
     lighthouse: dict = field(default_factory=dict)
@@ -108,7 +108,7 @@ class NebulaConfig:
         if not self.net_name.strip():
             raise ValueError("net-name не может быть пустым")
         self.ca_pem = self.ca_pem.strip() if self.ca_pem else ""
-        self.in_pub = self.in_pub.strip() if self.in_pub else ""
+        self.in_pub = self.in_pub.strip() if isinstance(self.in_pub, str) else self.in_pub
         self.ca_key_path = self.ca_key_path.strip() if self.ca_key_path else ""
         # nebula_ip обязателен
         for label, nodes in [("lighthouse", self.lighthouse), ("host", self.hosts)]:
