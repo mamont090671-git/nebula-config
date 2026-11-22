@@ -945,10 +945,9 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
             files_arg = " ".join(
                 shlex.quote(f"{remote_base}/{f.name}") for f in all_files
             )
-            hash_cmd = f'ssh "{remote_host}" "sha256sum {files_arg}"'
+            hash_args = [remote_host, f"sha256sum {files_arg}"]
             hash_result = subprocess.run(
-                hash_cmd,
-                shell=True,
+                ["ssh"] + hash_args,
                 capture_output=True,
                 text=True,
                 timeout=60,
