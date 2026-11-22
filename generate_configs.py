@@ -878,7 +878,6 @@ def deploy_configs(config, lighthouses, hosts, dry_run=False):
         # Собираем список файлов для деплоя
         critical_files = {"config.yaml", "ca.crt"}
         all_files = [item for item in node_dir.iterdir() if item.is_file()]
-        has_critical = any(f.name in critical_files for f in all_files)
 
         # Проверяем хэши на сервере
         needs_deploy = False
