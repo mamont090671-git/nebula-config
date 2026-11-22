@@ -34,6 +34,13 @@ def log_error(msg: str):
     print(f"✗ {msg}", file=sys.stderr)
 
 
+def resolve_in_pub(in_pub_cfg, node_name):
+    """Возвращает in_pub для узла: dict → по имени, строка → как есть."""
+    if isinstance(in_pub_cfg, dict):
+        return in_pub_cfg.get(node_name)
+    return in_pub_cfg or None
+
+
 from validators import validate_config_safe
 
 SCRIPT_DIR = Path(__file__).parent
@@ -1260,7 +1267,7 @@ def main():
 
     # Загрузка конфига и базовых переменных
     config = load_config()
-    in_pub = config.get("in_pub", "") or None
+    in_pub_cfg = config.get("in_pub", "") or None
     print(f"✓ Загружена конфигурация: {config.get('net-name', 'unnamed')}")
 
     lighthouses = config.get("lighthouse", {})
@@ -1525,7 +1532,7 @@ def main():
                             rendered,
                             ca_crt_path,
                             False,
-                            in_pub,
+                            resolve_in_pub(in_pub_cfg, lh_name),
                             external_ca_key=external_ca_key,
                         )
                     for host_name in host_targets:
@@ -1547,7 +1554,7 @@ def main():
                             rendered,
                             ca_crt_path,
                             False,
-                            in_pub,
+                            resolve_in_pub(in_pub_cfg, lh_name),
                             external_ca_key=external_ca_key,
                         )
                     print("  ✓ Конфиги обновлены")
@@ -1597,7 +1604,7 @@ def main():
                 rendered,
                 ca_crt_path,
                 generate_cert=auto_generate,
-                in_pub=in_pub,
+                in_pub=resolve_in_pub(in_pub_cfg, lh_name),
                 external_ca_key=external_ca_key,
             )
 
@@ -1623,7 +1630,7 @@ def main():
                 rendered,
                 ca_crt_path,
                 generate_cert=auto_generate,
-                in_pub=in_pub,
+                in_pub=resolve_in_pub(in_pub_cfg, host_name),
                 external_ca_key=external_ca_key,
             )
 
