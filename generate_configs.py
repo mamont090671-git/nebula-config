@@ -1386,17 +1386,17 @@ def main():
 
         if valid:
             print(f"\n✅ Валидные ({len(valid)}):")
-            for name, days in valid:
+            for name, _, days in valid:
                 print(f"  {name:<23} {'OK':<13} {days}")
 
         if expiring_soon:
             print(f"\n⚠ Истекают в течение 30 дней ({len(expiring_soon)}):")
-            for name, days in expiring_soon:
+            for name, _, days in expiring_soon:
                 print(f"  {name:<23} {'WARNING':<13} {days}")
 
         if expired:
             print(f"\n❌ Просроченные ({len(expired)}):")
-            for name, days in expired:
+            for name, _, days in expired:
                 print(f"  {name:<23} {'EXPIRED':<13} {days}")
 
         if expiring_soon or expired:
