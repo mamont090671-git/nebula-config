@@ -241,12 +241,13 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ## Recent Changes
 
-Полный список изменений — [CHANGELOG.md](CHANGELOG.md).
+Full changelog — [CHANGELOG.md](CHANGELOG.md).
 
-Кратко за 2026-11-21 (20 коммитов):
-- **CI**: `checkout@v5`, `setup-python@v6`, pinned `ruff==0.17.6`
-- **Feature**: `--renew-expiring` — automatic renewal of expiring certificates
-- **Feature**: `--dry-run` for `--push` — deploy preview
-- **Safety**: backup + `nebula -test` + auto-rollback in `nebula_service.sh`
-- **CI/CD**: fix skipped tests, remove binaries from git, simplify workflow
-- **Docs**: full README redesign (sections, examples, `ssh_target`)
+Brief for 2026-11-22 (30 commits):
+- **Security**: removed `shell=True` from all SSH/SCP commands, IPv6 validation, ssh_target format
+- **Security**: mktemp instead of `/tmp/`, backup BEFORE deploy, local `nebula -test` validation
+- **Fixes**: `--renew-expiring` node name, external_ca_key propagation, in_pub dict support
+- **Fixes**: CA auto-generate with external_ca_key, atomic binary replacement (mv)
+- **Cleanup**: dead code (compute_remote_file_hash, nebula_test), duplicate load_config() calls
+- **Files**: unified systemd unit in `templates/nebula.service`, GitHub API for downloads
+- **CI/CD**: ruff format/lint enforced

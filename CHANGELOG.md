@@ -2,6 +2,62 @@
 
 Все значимые изменения проекта.
 
+
+---
+
+## [2026-11-22] — Аудит и исправления (30 коммитов)
+
+### Безопасность
+
+#### Удаление `shell=True` (command injection prevention)
+- `deploy_binaries`: ssh_target больше не подставляется в f-string (было `ssh "{ssh_target}"`)
+- `deploy_configs`: hash check, test_cmd, rollback_cmd — все через list args
+- `detect_remote_arch`: вместо `f'ssh ...'` → `["ssh", "-o", ..., ssh_target, "uname -m"]`
+- `get_latest_release`: gh/curl через list args вместо shell=True
+- `deploy_service`: heredoc → subprocess stdin (без shell=True)
+- `deploy_binaries`: mktemp вместо `/tmp/` (symlink attack fix)
+
+#### Валидация данных
+- `ssh_target` формат: `user@host:/abs/path` (regex validation)
+- `relay_servers` IP валидация (IPv4 + IPv6)
+- `public_ip` поддержка IPv6 (ip_address вместо IPv4Address)
+
+#### Обработка ошибок CA
+- external_ca_key + отсутствующий ca.crt → exit с ошибкой (не auto-generate)
+- ca_key чтение с try/except FileNotFoundError/PermissionError
+
+### Исправления багов
+
+- **--renew-expiring**: node_name = crt_file.parent.name (ключ YAML), а не crt_file.stem
+- **--renew-expiring**: работает без --check-certs
+- **--renew-expiring**: external_ca_key передается во все write_config()
+- **in_pub**: поддержка dict {node_name: path} через resolve_in_pub()
+- **deploy_configs**: бэкап config.yaml.bak ДО scp (не после)
+- **deploy_binaries**: атомарная замена через `mv -f` (Text file busy fix)
+- **nebula_service.sh**: синхронизация systemd unit с templates/nebula.service
+- **nebula_service.sh**: GitHub API download URL вместо жёсткой ссылки
+- **nebula_service.sh**: удаление дублирующего command -v
+- **nebula_service.sh**: опциональное копирование ca.crt
+- **deploy_configs**: локальная валидация config.yaml через `nebula -test`
+
+### Очистка мёртвого кода
+
+- Удалён compute_remote_file_hash() (не использовался)
+- Удалён мёртвый nebula_test (заменён nebula_bin)
+- Убраны дублирующиеся load_config() вызовы (было 4, осталось 1)
+- Убран unused import validate_config_safe (добавлен заново в правильном месте)
+
+### Форматирование
+
+- ruff format/lint: все ошибки исправлены
+- resolve_in_pub helper для in_pub dict/string
+
+### Файлы
+
+- Создан `templates/nebula.service` — единый источник systemd unit
+- Удалён bug.md
+
+---
 ---
 
 ## [2026-06-18] — Аудит и обновление документации

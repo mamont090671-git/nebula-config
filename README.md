@@ -233,10 +233,11 @@ MIT License — see [LICENSE](LICENSE) file.
 
 Полный список изменений — [CHANGELOG.md](CHANGELOG.md).
 
-Кратко за 2026-11-21 (20 коммитов):
-- **CI**: `checkout@v5`, `setup-python@v6`, pinned `ruff==0.17.6`
-- **Фича**: `--renew-expiring` — автоматический перевыпуск истекающих сертификатов
-- **Фича**: `--dry-run` для `--push` — предпросмотр деплоя
-- **Безопасность**: backup + `nebula -test` + авто-откат в `nebula_service.sh`
-- **CI/CD**: фикс пропавших тестов, удаление бинарников из git, упрощение workflow
-- **Документация**: полный редизайн README (секции, примеры, `ssh_target`)
+Кратко за 2026-11-22 (30 коммитов):
+- **Безопасность**: удаление `shell=True` из всех SSH/SCP команд, IPv6 валидация, ssh_target формат
+- **Безопасность**: mktemp вместо `/tmp/`, backup ДО деплоя, локальная `nebula -test` валидация
+- **Исправления**: `--renew-expiring` node name, external_ca_key propagation, in_pub dict support
+- **Исправления**: CA auto-generate при external_ca_key, атомарная замена бинарников (mv)
+- **Очистка**: мёртвый код (compute_remote_file_hash, nebula_test), дублирующиеся load_config()
+- **Файлы**: единый systemd unit в `templates/nebula.service`, GitHub API для скачивания
+- **CI/CD**: ruff format/lint enforced
