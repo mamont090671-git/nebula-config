@@ -635,7 +635,7 @@ def generate_ca(network_name, nebula_cert_path):
         sys.exit(1)
 
 
-def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None):
+def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None, external_ca_key=None):
     """Генерация сертификатов для всех узлов и маяков"""
     if not ca_dir.exists():
         print(f"Ошибка: CA-сертификат не найден в {ca_dir}", file=sys.stderr)
@@ -662,7 +662,8 @@ def generate_all_host_certs(config, nebula_cert_path, ca_dir, in_pub=None):
 
     for node_name, node_data in all_nodes.items():
         success, _ = generate_node_certificate(
-            node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub
+            node_name, node_data, ca_dir, nebula_cert_path, in_pub=in_pub,
+            external_ca_key=external_ca_key
         )
         if success:
             success_count += 1
@@ -1468,7 +1469,12 @@ def main():
 
                             node_data = all_nodes[node_name]
                             ca_dir_renew = OUTPUT_DIR / "ca"
-                            in_pub_val = config.get("in_pub", "") or None
+                            # in_pub может быть строкой или dict {node_name: path}
+                            in_pub_raw = config.get("in_pub", "") or None
+                            if isinstance(in_pub_raw, dict):
+                                in_pub_val = in_pub_raw.get(node_name)
+                            else:
+                                in_pub_val = in_pub_raw
 
                             success, _ = generate_node_certificate(
                                 node_name,
