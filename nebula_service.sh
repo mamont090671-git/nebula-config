@@ -28,7 +28,7 @@ fi
 # 3. Копируем конфиг и сертификаты (только если пути разные)
 if [ "$SAME_PATH" = false ]; then
     cp -f "$NODE_DIR/config.yaml" /etc/nebula/config.yaml
-    cp -f "$NODE_DIR/ca.crt" /etc/nebula/ca.crt
+    [ -f "$NODE_DIR/ca.crt" ] && cp -f "$NODE_DIR/ca.crt" /etc/nebula/ca.crt
     cp -f "$NODE_DIR"/*.crt /etc/nebula/
     cp -f "$NODE_DIR"/*.key /etc/nebula/
     echo "✓ Конфиг и сертификаты скопированы"
