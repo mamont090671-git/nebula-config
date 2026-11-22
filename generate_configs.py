@@ -803,8 +803,11 @@ tar xzf "$TMPDIR/{archive}" -C "$TMPDIR"
 for bin in nebula nebula-cert; do
     src=$(find "$TMPDIR" -name "$bin" -type f ! -name "*_test" 2>/dev/null | head -1)
     if [ -n "$src" ]; then
-        cp -v "$src" {remote_path}/"$bin"
-        chmod +x {remote_path}/"$bin"
+        dest="{remote_path}/$bin"
+        # Атомарная замена: mv не блокируется работающим процессом (cp — блокируется)
+        cp -v "$src" "$dest".new
+        chmod +x "$dest".new
+        mv -f "$dest".new "$dest"
     fi
 done
 SCRIPT"""
