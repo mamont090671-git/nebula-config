@@ -25,3 +25,5 @@ nebula-cert
 .env
 *.key
 *.pem
+
+todo.md
