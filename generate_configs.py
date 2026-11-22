@@ -34,6 +34,8 @@ def log_error(msg: str):
     print(f"✗ {msg}", file=sys.stderr)
 
 
+from validators import validate_config_safe
+
 SCRIPT_DIR = Path(__file__).parent
 MASTER_CONFIG = SCRIPT_DIR / "config-nebula.yaml"
 TEMPLATE = SCRIPT_DIR / "templates/config.yaml"
@@ -1519,6 +1521,14 @@ def main():
         else:
             print(f"\n✅ ВСЕ сертификаты валидны ({len(valid)} шт.)")
             sys.exit(0)
+
+    # Валидация конфига перед генерацией
+    is_valid, error = validate_config_safe(config)
+    if not is_valid:
+        print(f"❌ Ошибка валидации конфига: {error}", file=sys.stderr)
+        sys.exit(1)
+    else:
+        print("✓ Конфиг валиден")
 
     # Основная генерация
     print("Генерация конфигураций Nebula VPN")
